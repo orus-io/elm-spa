@@ -8,7 +8,7 @@ import Spa.Page
 
 page _ =
     Spa.Page.sandbox
-        { init = initialModel
+        { init = always initialModel
         , update = update
         , view = counterElements
         }

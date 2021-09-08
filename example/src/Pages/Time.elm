@@ -9,7 +9,7 @@ import Time exposing (Posix, Zone)
 
 page _ =
     Spa.Page.element
-        { init = init
+        { init = always init
         , update = update
         , subscriptions = subscriptions
         , view = view

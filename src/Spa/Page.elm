@@ -5,9 +5,9 @@ import Element exposing (Element)
 import Spa exposing (Page)
 
 
-static : Element () -> Page sharedMsg () ()
+static : Element () -> Page flags sharedMsg () ()
 static pageView =
-    { init = ( (), Effect.none )
+    { init = \_ -> ( (), Effect.none )
     , update = \_ _ -> ( (), Effect.none )
     , subscriptions = always Sub.none
     , view = always pageView
@@ -15,13 +15,13 @@ static pageView =
 
 
 sandbox :
-    { init : model
+    { init : flags -> model
     , update : msg -> model -> model
     , view : model -> Element msg
     }
-    -> Page sharedMsg model msg
+    -> Page flags sharedMsg model msg
 sandbox { init, update, view } =
-    { init = init |> Effect.withNone
+    { init = init >> Effect.withNone
     , update = \msg model -> update msg model |> Effect.withNone
     , subscriptions = always Sub.none
     , view = view
@@ -29,12 +29,12 @@ sandbox { init, update, view } =
 
 
 element :
-    { init : ( model, Effect sharedMsg msg )
+    { init : flags -> ( model, Effect sharedMsg msg )
     , update : msg -> model -> ( model, Effect sharedMsg msg )
     , view : model -> Element msg
     , subscriptions : model -> Sub msg
     }
-    -> Page sharedMsg model msg
+    -> Page flags sharedMsg model msg
 element { init, update, view, subscriptions } =
     { init = init
     , update = update

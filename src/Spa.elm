@@ -68,16 +68,16 @@ mapPreviousMsg msg =
             UrlChange url
 
 
-type alias Page sharedMsg model msg =
-    { init : ( model, Effect sharedMsg msg )
+type alias Page flags sharedMsg model msg =
+    { init : flags -> ( model, Effect sharedMsg msg )
     , update : msg -> model -> ( model, Effect sharedMsg msg )
     , subscriptions : model -> Sub msg
     , view : model -> Element msg
     }
 
 
-type alias PageSetup shared sharedMsg model msg =
-    shared -> Page sharedMsg model msg
+type alias PageSetup flags shared sharedMsg model msg =
+    shared -> Page flags sharedMsg model msg
 
 
 type alias Model shared current previous =
@@ -180,19 +180,23 @@ builderRootUpdate sharedUpdate msg model =
 
 addStaticPathPage :
     List String
-    -> PageSetup shared sharedMsg currentPageModel currentPageMsg
+    -> PageSetup () shared sharedMsg currentPageModel currentPageMsg
     -> Builder flags shared sharedMsg prev prevprev previousPageMsg
     -> Builder flags shared sharedMsg currentPageModel (PageModel prev prevprev) (PageMsg currentPageMsg previousPageMsg)
 addStaticPathPage path =
-    addPage
-        (path
-            |> List.foldl (\s prev -> prev </> Url.Parser.s s) Url.Parser.top
-        )
+    let
+        parser : Parser (() -> ()) ()
+        parser =
+            path
+                |> List.foldl (\str prev -> prev </> Url.Parser.s str) Url.Parser.top
+                |> Url.Parser.map ()
+    in
+    addPage parser
 
 
 addPage :
-    Parser (route -> route) route
-    -> PageSetup shared sharedMsg currentPageModel currentPageMsg
+    Parser (pageFlags -> pageFlags) pageFlags
+    -> PageSetup pageFlags shared sharedMsg currentPageModel currentPageMsg
     -> Builder flags shared sharedMsg prev prevprev previousPageMsg
     -> Builder flags shared sharedMsg currentPageModel (PageModel prev prevprev) (PageMsg currentPageMsg previousPageMsg)
 addPage route page builder =
@@ -206,10 +210,10 @@ addPage route page builder =
                     case model.page of
                         NoPage ->
                             case Url.Parser.parse route url of
-                                Just _ ->
+                                Just pageFlags ->
                                     let
                                         ( currentPage, currentPageEffect ) =
-                                            (page model.shared).init
+                                            (page model.shared).init pageFlags
                                     in
                                     ( Current currentPage
                                     , currentPageEffect
@@ -310,10 +314,10 @@ addPage route page builder =
                             case previousModel.page of
                                 NoPage ->
                                     case Url.Parser.parse route url of
-                                        Just _ ->
+                                        Just pageFlags ->
                                             let
                                                 ( currentPage, currentPageEffect ) =
-                                                    (page model.shared).init
+                                                    (page model.shared).init pageFlags
                                             in
                                             ( Current currentPage
                                             , currentPageEffect
