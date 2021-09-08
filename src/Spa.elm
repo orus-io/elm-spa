@@ -68,13 +68,15 @@ mapPreviousMsg msg =
             UrlChange url
 
 
-type alias Page shared sharedMsg model msg =
-    shared
-    ->
-        { init : ( model, Effect sharedMsg msg )
-        , update : msg -> model -> ( model, Effect sharedMsg msg )
-        , view : model -> Element msg
-        }
+type alias Page sharedMsg model msg =
+    { init : ( model, Effect sharedMsg msg )
+    , update : msg -> model -> ( model, Effect sharedMsg msg )
+    , view : model -> Element msg
+    }
+
+
+type alias PageSetup shared sharedMsg model msg =
+    shared -> Page sharedMsg model msg
 
 
 type alias Model shared current previous =
@@ -177,7 +179,7 @@ builderRootUpdate sharedUpdate msg model =
 
 addStaticPathPage :
     List String
-    -> Page shared sharedMsg currentPageModel currentPageMsg
+    -> PageSetup shared sharedMsg currentPageModel currentPageMsg
     -> Builder flags shared sharedMsg prev prevprev previousPageMsg
     -> Builder flags shared sharedMsg currentPageModel (PageModel prev prevprev) (PageMsg currentPageMsg previousPageMsg)
 addStaticPathPage path =
@@ -189,7 +191,7 @@ addStaticPathPage path =
 
 addPage :
     Parser (route -> route) route
-    -> Page shared sharedMsg currentPageModel currentPageMsg
+    -> PageSetup shared sharedMsg currentPageModel currentPageMsg
     -> Builder flags shared sharedMsg prev prevprev previousPageMsg
     -> Builder flags shared sharedMsg currentPageModel (PageModel prev prevprev) (PageMsg currentPageMsg previousPageMsg)
 addPage route page builder =

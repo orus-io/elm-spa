@@ -6,7 +6,7 @@ import Element.Input as Input
 import Spa.Page
 
 
-page =
+page _ =
     Spa.Page.sandbox
         { init = initialModel
         , update = update

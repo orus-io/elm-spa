@@ -5,7 +5,7 @@ import Html
 import Spa.Page
 
 
-page =
+page _ =
     Spa.Page.static view
 
 
