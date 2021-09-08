@@ -71,6 +71,7 @@ mapPreviousMsg msg =
 type alias Page sharedMsg model msg =
     { init : ( model, Effect sharedMsg msg )
     , update : msg -> model -> ( model, Effect sharedMsg msg )
+    , subscriptions : model -> Sub msg
     , view : model -> Element msg
     }
 
@@ -201,7 +202,7 @@ addPage route page builder =
                 ( model, previousCmd ) =
                     builder.init flags url key
 
-                ( pageModel, effects ) =
+                ( pageModel, cmd ) =
                     case model.page of
                         NoPage ->
                             case Url.Parser.parse route url of
@@ -225,9 +226,25 @@ addPage route page builder =
               , shared = model.shared
               , page = pageModel
               }
-            , Cmd.none
+            , Cmd.batch
+                [ previousCmd
+                    |> Cmd.map mapPreviousMsg
+                , cmd
+                ]
             )
-    , subscriptions = always Sub.none
+    , subscriptions =
+        \model ->
+            case model.page of
+                Current current ->
+                    (page model.shared).subscriptions current
+                        |> Sub.map (CurrentMsg >> PageMsg)
+
+                Previous previous ->
+                    builder.subscriptions (modelPrevious model)
+                        |> Sub.map mapPreviousMsg
+
+                NoPage ->
+                    Sub.none
     , update =
         \msg model ->
             case msg of
@@ -289,7 +306,7 @@ addPage route page builder =
                         ( previousModel, previousCmd ) =
                             builder.update (UrlChange url) (modelPrevious model)
 
-                        ( pageModel, effects ) =
+                        ( pageModel, cmd ) =
                             case previousModel.page of
                                 NoPage ->
                                     case Url.Parser.parse route url of
@@ -315,7 +332,10 @@ addPage route page builder =
                       , shared = model.shared
                       , page = pageModel
                       }
-                    , Cmd.none
+                    , Cmd.batch
+                        [ previousCmd |> Cmd.map mapPreviousMsg
+                        , cmd
+                        ]
                     )
     , view =
         \model ->

@@ -21,4 +21,8 @@ view =
             { label = Element.text "See counter"
             , url = "/counter"
             }
+        , Element.link []
+            { label = Element.text "See time"
+            , url = "/time"
+            }
         ]

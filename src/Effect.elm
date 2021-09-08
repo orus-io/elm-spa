@@ -1,8 +1,8 @@
 module Effect exposing
-    ( Effect, none, batch, fromCmd, fromSharedCmd, fromShared
+    ( Effect, none, batch, fromCmd, fromSharedCmd, fromShared, perform, attempt
     , map, toCmd
-    , with, withNone, withBatch, withCmd, withSharedCmd, withShared, withMap
-    , add, addBatch, addCmd, addSharedCmd, addShared, addMap
+    , with, withNone, withBatch, withCmd, withSharedCmd, withShared, withMap, withPerform, withAttempt
+    , add, addBatch, addCmd, addSharedCmd, addShared, addMap, addPerform, addAttempt
     )
 
 {-| This module provides a [`Effect`](#Effect) type that carry both Cmd and messages for
@@ -11,7 +11,7 @@ a shared update
 
 # Create
 
-@docs Effect, none, batch, fromCmd, fromSharedCmd, fromShared
+@docs Effect, none, batch, fromCmd, fromSharedCmd, fromShared, perform, attempt
 
 
 # Transform
@@ -24,7 +24,7 @@ a shared update
 These functions join an effect to a given model, for using pipeline syntax in
 your 'update' functions
 
-@docs with, withNone, withBatch, withCmd, withSharedCmd, withShared, withMap
+@docs with, withNone, withBatch, withCmd, withSharedCmd, withShared, withMap, withPerform, withAttempt
 
 
 # Add effect to a (model, effect) pair
@@ -32,11 +32,11 @@ your 'update' functions
 These functions add a new effect to a given (model, effect) pair, for using
 pipeline syntax in your 'update' functions
 
-@docs add, addBatch, addCmd, addSharedCmd, addShared, addMap
+@docs add, addBatch, addCmd, addSharedCmd, addShared, addMap, addPerform, addAttempt
 
 -}
 
-import Task
+import Task exposing (Task)
 
 
 {-| A collection of shared and platform effects
@@ -107,6 +107,18 @@ map fn effect =
 
         Batch list ->
             Batch (List.map (map fn) list)
+
+
+perform : (a -> msg) -> Task Never a -> Effect sharedMsg msg
+perform tomsg task =
+    Task.perform tomsg task
+        |> fromCmd
+
+
+attempt : (Result x a -> msg) -> Task x a -> Effect sharedMsg msg
+attempt tomsg task =
+    Task.attempt tomsg task
+        |> fromCmd
 
 
 {-| Wraps the model with the given Effect
@@ -195,6 +207,16 @@ withMap mapper effect model =
     ( model, map mapper effect )
 
 
+withPerform : (a -> msg) -> Task Never a -> model -> ( model, Effect sharedMsg msg )
+withPerform tomsg task model =
+    ( model, perform tomsg task )
+
+
+withAttempt : (Result x a -> msg) -> Task x a -> model -> ( model, Effect sharedMsg msg )
+withAttempt tomsg task model =
+    ( model, attempt tomsg task )
+
+
 {-| Add a new Effect to an existing model-Effect pair
 -}
 add : Effect sharedMsg msg -> ( model, Effect sharedMsg msg ) -> ( model, Effect sharedMsg msg )
@@ -245,6 +267,16 @@ addShared =
 addMap : (msg1 -> msg) -> Effect sharedMsg msg1 -> ( model, Effect sharedMsg msg ) -> ( model, Effect sharedMsg msg )
 addMap mapper effect =
     add (map mapper effect)
+
+
+addPerform : (a -> msg) -> Task Never a -> ( model, Effect sharedMsg msg ) -> ( model, Effect sharedMsg msg )
+addPerform tomsg task =
+    add (perform tomsg task)
+
+
+addAttempt : (Result x a -> msg) -> Task x a -> ( model, Effect sharedMsg msg ) -> ( model, Effect sharedMsg msg )
+addAttempt tomsg task =
+    add (attempt tomsg task)
 
 
 {-| Convert a collection of effect to a connection of

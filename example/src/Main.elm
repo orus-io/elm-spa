@@ -5,6 +5,7 @@ import Element exposing (Element)
 import Pages.Counter as Counter
 import Pages.Home as Home
 import Pages.SignIn as SignIn
+import Pages.Time as Time
 import Spa
 
 
@@ -13,6 +14,7 @@ main =
         |> Spa.addStaticPathPage [] Home.page
         |> Spa.addStaticPathPage [ "sign-in" ] SignIn.page
         |> Spa.addStaticPathPage [ "counter" ] Counter.page
+        |> Spa.addStaticPathPage [ "time" ] Time.page
         |> Spa.application { toDocument = toDocument }
         |> Browser.application
 
@@ -23,6 +25,9 @@ toDocument el =
     , body =
         [ Element.layout
             []
-            el
+          <|
+            Element.el
+                [ Element.centerX, Element.centerY ]
+                el
         ]
     }
