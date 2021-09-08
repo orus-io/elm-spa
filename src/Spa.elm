@@ -236,13 +236,25 @@ addPage route page builder =
                                 ( pageModelNew, pageEffect ) =
                                     (page model.shared).update pageMsg pageModel
                             in
-                            ( model, Cmd.none )
+                            ( { model
+                                | page = Current pageModelNew
+                              }
+                            , Effect.toCmd ( SharedMsg, CurrentMsg >> PageMsg ) pageEffect
+                            )
 
                         Nothing ->
                             ( model, Cmd.none )
 
                 PageMsg (PreviousMsg pageMsg) ->
-                    ( model, Cmd.none )
+                    let
+                        ( previousModel, previousCmd ) =
+                            builder.update (PageMsg pageMsg) (modelPrevious model)
+                    in
+                    ( { model
+                        | page = Previous previousModel.page
+                      }
+                    , previousCmd |> Cmd.map mapPreviousMsg
+                    )
 
                 SharedMsg sharedMsg ->
                     let

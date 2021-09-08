@@ -17,4 +17,8 @@ view =
             { label = Element.text "Go sign-in"
             , url = "/sign-in"
             }
+        , Element.link []
+            { label = Element.text "See counter"
+            , url = "/counter"
+            }
         ]
