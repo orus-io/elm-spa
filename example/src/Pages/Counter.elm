@@ -4,6 +4,7 @@ import Element exposing (Element)
 import Element.Background as Background
 import Element.Input as Input
 import Spa.Page
+import View exposing (View)
 
 
 page _ =
@@ -52,16 +53,19 @@ myButton label msg =
         }
 
 
-counterElements : Model -> Element Msg
+counterElements : Model -> View Msg
 counterElements model =
-    Element.column []
-        [ Element.row [ Element.spacing 30, Element.padding 10 ]
-            [ myButton "Increment" Increment
-            , Element.text <| String.fromInt model.amount
-            , myButton "Decrement" Decrement
+    { title = "Counter"
+    , body =
+        Element.column []
+            [ Element.row [ Element.spacing 30, Element.padding 10 ]
+                [ myButton "Increment" Increment
+                , Element.text <| String.fromInt model.amount
+                , myButton "Decrement" Decrement
+                ]
+            , Element.link []
+                { label = Element.text "Go Home"
+                , url = "/"
+                }
             ]
-        , Element.link []
-            { label = Element.text "Go Home"
-            , url = "/"
-            }
-        ]
+    }

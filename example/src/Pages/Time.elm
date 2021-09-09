@@ -5,6 +5,7 @@ import Element exposing (Element)
 import Spa.Page
 import Task
 import Time exposing (Posix, Zone)
+import View exposing (View)
 
 
 page _ =
@@ -61,28 +62,31 @@ subscriptions model =
             Sub.none
 
 
-view : Model -> Element msg
+view : Model -> View msg
 view model =
-    Element.column []
-        [ case model of
-            Just { time, here } ->
-                (Time.toHour here time
-                    |> String.fromInt
-                )
-                    ++ ":"
-                    ++ (Time.toMinute here time
-                            |> String.fromInt
-                       )
-                    ++ ":"
-                    ++ (Time.toSecond here time
-                            |> String.fromInt
-                       )
-                    |> Element.text
+    { title = "What time is it?"
+    , body =
+        Element.column []
+            [ case model of
+                Just { time, here } ->
+                    (Time.toHour here time
+                        |> String.fromInt
+                    )
+                        ++ ":"
+                        ++ (Time.toMinute here time
+                                |> String.fromInt
+                           )
+                        ++ ":"
+                        ++ (Time.toSecond here time
+                                |> String.fromInt
+                           )
+                        |> Element.text
 
-            Nothing ->
-                Element.text "..."
-        , Element.link []
-            { label = Element.text "Go home"
-            , url = "/"
-            }
-        ]
+                Nothing ->
+                    Element.text "..."
+            , Element.link []
+                { label = Element.text "Go home"
+                , url = "/"
+                }
+            ]
+    }

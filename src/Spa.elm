@@ -3,7 +3,6 @@ module Spa exposing (..)
 import Browser exposing (Document, UrlRequest)
 import Browser.Navigation as Nav
 import Effect exposing (Effect)
-import Element exposing (Element)
 import Html
 import Url exposing (Url)
 import Url.Parser exposing ((</>), Parser)
@@ -68,16 +67,16 @@ mapPreviousMsg msg =
             UrlChange url
 
 
-type alias Page flags sharedMsg model msg =
+type alias Page flags sharedMsg view model msg =
     { init : flags -> ( model, Effect sharedMsg msg )
     , update : msg -> model -> ( model, Effect sharedMsg msg )
     , subscriptions : model -> Sub msg
-    , view : model -> Element msg
+    , view : model -> view
     }
 
 
-type alias PageSetup flags shared sharedMsg model msg =
-    shared -> Page flags sharedMsg model msg
+type alias PageSetup flags shared sharedMsg view model msg =
+    shared -> Page flags sharedMsg view model msg
 
 
 type alias Model shared current previous =
@@ -107,9 +106,9 @@ initModel key shared =
     }
 
 
-type alias Builder flags shared sharedMsg current previous pageMsg =
+type alias Builder flags shared sharedMsg view current previous pageMsg =
     { init : flags -> Url -> Nav.Key -> ( Model shared current previous, Cmd (Msg sharedMsg pageMsg) )
-    , view : Model shared current previous -> Element (Msg sharedMsg pageMsg)
+    , view : Model shared current previous -> view
     , update : Msg sharedMsg pageMsg -> Model shared current previous -> ( Model shared current previous, Cmd (Msg sharedMsg pageMsg) )
     , subscriptions : Model shared current previous -> Sub (Msg sharedMsg pageMsg)
     }
@@ -119,25 +118,25 @@ init :
     { init : flags -> ( shared, Cmd sharedMsg )
     , subscriptions : shared -> Sub sharedMsg
     , update : sharedMsg -> shared -> ( shared, Cmd sharedMsg )
+    , defaultView : view
     }
-    -> Builder flags shared sharedMsg () () ()
+    -> Builder flags shared sharedMsg view () () ()
 init shared =
     { init = builderInit shared.init
     , subscriptions = always Sub.none
     , update = builderRootUpdate shared.update
     , view =
-        always <|
-            Element.text
-                "You should not see this page unless you forgot to add pages to your application"
+        always shared.defaultView
     }
 
 
-initNoShared : Builder () () () () () ()
-initNoShared =
+initNoShared : view -> Builder () () () view () () ()
+initNoShared defaultView =
     init
         { init = always ( (), Cmd.none )
         , subscriptions = always Sub.none
         , update = \_ _ -> ( (), Cmd.none )
+        , defaultView = defaultView
         }
 
 
@@ -179,11 +178,14 @@ builderRootUpdate sharedUpdate msg model =
 
 
 addStaticPathPage :
-    List String
-    -> PageSetup () shared sharedMsg currentPageModel currentPageMsg
-    -> Builder flags shared sharedMsg prev prevprev previousPageMsg
-    -> Builder flags shared sharedMsg currentPageModel (PageModel prev prevprev) (PageMsg currentPageMsg previousPageMsg)
-addStaticPathPage path =
+    ( (currentPageMsg -> Msg sharedMsg (PageMsg currentPageMsg previousPageMsg)) -> pageView -> view
+    , (Msg sharedMsg previousPageMsg -> Msg sharedMsg (PageMsg currentPageMsg previousPageMsg)) -> previousView -> view
+    )
+    -> List String
+    -> PageSetup () shared sharedMsg pageView currentPageModel currentPageMsg
+    -> Builder flags shared sharedMsg previousView prev prevprev previousPageMsg
+    -> Builder flags shared sharedMsg view currentPageModel (PageModel prev prevprev) (PageMsg currentPageMsg previousPageMsg)
+addStaticPathPage viewMap path =
     let
         parser : Parser (() -> ()) ()
         parser =
@@ -191,15 +193,18 @@ addStaticPathPage path =
                 |> List.foldl (\str prev -> prev </> Url.Parser.s str) Url.Parser.top
                 |> Url.Parser.map ()
     in
-    addPage parser
+    addPage viewMap parser
 
 
 addPage :
-    Parser (pageFlags -> pageFlags) pageFlags
-    -> PageSetup pageFlags shared sharedMsg currentPageModel currentPageMsg
-    -> Builder flags shared sharedMsg prev prevprev previousPageMsg
-    -> Builder flags shared sharedMsg currentPageModel (PageModel prev prevprev) (PageMsg currentPageMsg previousPageMsg)
-addPage route page builder =
+    ( (currentPageMsg -> Msg sharedMsg (PageMsg currentPageMsg previousPageMsg)) -> pageView -> view
+    , (Msg sharedMsg previousPageMsg -> Msg sharedMsg (PageMsg currentPageMsg previousPageMsg)) -> previousView -> view
+    )
+    -> Parser (pageFlags -> pageFlags) pageFlags
+    -> PageSetup pageFlags shared sharedMsg pageView currentPageModel currentPageMsg
+    -> Builder flags shared sharedMsg previousView prev prevprev previousPageMsg
+    -> Builder flags shared sharedMsg view currentPageModel (PageModel prev prevprev) (PageMsg currentPageMsg previousPageMsg)
+addPage ( viewMap1, viewMap2 ) route page builder =
     { init =
         \flags url key ->
             let
@@ -344,22 +349,19 @@ addPage route page builder =
     , view =
         \model ->
             case model.page of
-                NoPage ->
-                    Element.text "No current page"
-
                 Current pageModel ->
                     (page model.shared).view pageModel
-                        |> Element.map (CurrentMsg >> PageMsg)
+                        |> viewMap1 (CurrentMsg >> PageMsg)
 
-                Previous pageModel ->
-                    builder.view { key = model.key, shared = model.shared, page = pageModel }
-                        |> Element.map mapPreviousMsg
+                _ ->
+                    builder.view (modelPrevious model)
+                        |> viewMap2 mapPreviousMsg
     }
 
 
 application :
-    { toDocument : Element (Msg sharedMsg pageMsg) -> Document (Msg sharedMsg pageMsg) }
-    -> Builder flags shared sharedMsg current previous pageMsg
+    { toDocument : view -> Document (Msg sharedMsg pageMsg) }
+    -> Builder flags shared sharedMsg view current previous pageMsg
     ->
         { init : flags -> Url -> Nav.Key -> ( Model shared current previous, Cmd (Msg sharedMsg pageMsg) )
         , view : Model shared current previous -> Document (Msg sharedMsg pageMsg)
