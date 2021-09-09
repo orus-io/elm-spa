@@ -7,7 +7,7 @@ import Spa.Page
 import View exposing (View)
 
 
-page _ =
+page _ identity =
     Spa.Page.sandbox
         { init = always initialModel
         , update = update

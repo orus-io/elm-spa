@@ -7,6 +7,7 @@ import Pages.Home as Home
 import Pages.SignIn as SignIn
 import Pages.Time as Time
 import Route
+import Shared exposing (Shared)
 import Spa
 import View exposing (View)
 
@@ -16,11 +17,19 @@ mappers =
 
 
 main =
-    Spa.initNoShared Route.toRoute View.defaultView
-        |> Spa.addPage mappers Route.matchHome Home.page
-        |> Spa.addPage mappers Route.matchSignIn SignIn.page
-        |> Spa.addPage mappers Route.matchCounter Counter.page
-        |> Spa.addPage mappers Route.matchTime Time.page
+    Spa.init
+        { init = Shared.init
+        , subscriptions = Shared.subscriptions
+        , update = Shared.update
+        , defaultView = View.defaultView
+        , toRoute = Route.toRoute
+        , extractIdentity = Shared.identity
+        , protectPage = Route.toUrl >> Just >> Route.SignIn >> Route.toUrl
+        }
+        |> Spa.addPublicPage mappers Route.matchHome Home.page
+        |> Spa.addPublicPage mappers Route.matchSignIn SignIn.page
+        |> Spa.addProtectedPage mappers Route.matchCounter Counter.page
+        |> Spa.addPublicPage mappers Route.matchTime Time.page
         |> Spa.application { toDocument = toDocument }
         |> Browser.application
 
