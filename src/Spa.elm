@@ -106,11 +106,12 @@ initModel key shared =
     }
 
 
-type alias Builder flags shared sharedMsg view current previous pageMsg =
+type alias Builder flags route shared sharedMsg view current previous pageMsg =
     { init : flags -> Url -> Nav.Key -> ( Model shared current previous, Cmd (Msg sharedMsg pageMsg) )
     , view : Model shared current previous -> view
     , update : Msg sharedMsg pageMsg -> Model shared current previous -> ( Model shared current previous, Cmd (Msg sharedMsg pageMsg) )
     , subscriptions : Model shared current previous -> Sub (Msg sharedMsg pageMsg)
+    , toRoute : Url -> route
     }
 
 
@@ -119,24 +120,27 @@ init :
     , subscriptions : shared -> Sub sharedMsg
     , update : sharedMsg -> shared -> ( shared, Cmd sharedMsg )
     , defaultView : view
+    , toRoute : Url -> route
     }
-    -> Builder flags shared sharedMsg view () () ()
+    -> Builder flags route shared sharedMsg view () () ()
 init shared =
     { init = builderInit shared.init
     , subscriptions = always Sub.none
     , update = builderRootUpdate shared.update
     , view =
         always shared.defaultView
+    , toRoute = shared.toRoute
     }
 
 
-initNoShared : view -> Builder () () () view () () ()
-initNoShared defaultView =
+initNoShared : (Url -> route) -> view -> Builder () route () () view () () ()
+initNoShared toRoute defaultView =
     init
         { init = always ( (), Cmd.none )
         , subscriptions = always Sub.none
         , update = \_ _ -> ( (), Cmd.none )
         , defaultView = defaultView
+        , toRoute = toRoute
         }
 
 
@@ -177,35 +181,17 @@ builderRootUpdate sharedUpdate msg model =
             ( model, Cmd.none )
 
 
-addStaticPathPage :
-    ( (currentPageMsg -> Msg sharedMsg (PageMsg currentPageMsg previousPageMsg)) -> pageView -> view
-    , (Msg sharedMsg previousPageMsg -> Msg sharedMsg (PageMsg currentPageMsg previousPageMsg)) -> previousView -> view
-    )
-    -> List String
-    -> PageSetup () shared sharedMsg pageView currentPageModel currentPageMsg
-    -> Builder flags shared sharedMsg previousView prev prevprev previousPageMsg
-    -> Builder flags shared sharedMsg view currentPageModel (PageModel prev prevprev) (PageMsg currentPageMsg previousPageMsg)
-addStaticPathPage viewMap path =
-    let
-        parser : Parser (() -> ()) ()
-        parser =
-            path
-                |> List.foldl (\str prev -> prev </> Url.Parser.s str) Url.Parser.top
-                |> Url.Parser.map ()
-    in
-    addPage viewMap parser
-
-
 addPage :
     ( (currentPageMsg -> Msg sharedMsg (PageMsg currentPageMsg previousPageMsg)) -> pageView -> view
     , (Msg sharedMsg previousPageMsg -> Msg sharedMsg (PageMsg currentPageMsg previousPageMsg)) -> previousView -> view
     )
-    -> Parser (pageFlags -> pageFlags) pageFlags
+    -> (route -> Maybe pageFlags)
     -> PageSetup pageFlags shared sharedMsg pageView currentPageModel currentPageMsg
-    -> Builder flags shared sharedMsg previousView prev prevprev previousPageMsg
-    -> Builder flags shared sharedMsg view currentPageModel (PageModel prev prevprev) (PageMsg currentPageMsg previousPageMsg)
-addPage ( viewMap1, viewMap2 ) route page builder =
-    { init =
+    -> Builder flags route shared sharedMsg previousView prev prevprev previousPageMsg
+    -> Builder flags route shared sharedMsg view currentPageModel (PageModel prev prevprev) (PageMsg currentPageMsg previousPageMsg)
+addPage ( viewMap1, viewMap2 ) matchRoute page builder =
+    { toRoute = builder.toRoute
+    , init =
         \flags url key ->
             let
                 ( model, previousCmd ) =
@@ -214,7 +200,7 @@ addPage ( viewMap1, viewMap2 ) route page builder =
                 ( pageModel, cmd ) =
                     case model.page of
                         NoPage ->
-                            case Url.Parser.parse route url of
+                            case builder.toRoute url |> matchRoute of
                                 Just pageFlags ->
                                     let
                                         ( currentPage, currentPageEffect ) =
@@ -318,7 +304,7 @@ addPage ( viewMap1, viewMap2 ) route page builder =
                         ( pageModel, cmd ) =
                             case previousModel.page of
                                 NoPage ->
-                                    case Url.Parser.parse route url of
+                                    case builder.toRoute url |> matchRoute of
                                         Just pageFlags ->
                                             let
                                                 ( currentPage, currentPageEffect ) =
@@ -361,7 +347,7 @@ addPage ( viewMap1, viewMap2 ) route page builder =
 
 application :
     { toDocument : view -> Document (Msg sharedMsg pageMsg) }
-    -> Builder flags shared sharedMsg view current previous pageMsg
+    -> Builder flags route shared sharedMsg view current previous pageMsg
     ->
         { init : flags -> Url -> Nav.Key -> ( Model shared current previous, Cmd (Msg sharedMsg pageMsg) )
         , view : Model shared current previous -> Document (Msg sharedMsg pageMsg)

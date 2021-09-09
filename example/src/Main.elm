@@ -6,6 +6,7 @@ import Pages.Counter as Counter
 import Pages.Home as Home
 import Pages.SignIn as SignIn
 import Pages.Time as Time
+import Route
 import Spa
 import View exposing (View)
 
@@ -15,11 +16,11 @@ mappers =
 
 
 main =
-    Spa.initNoShared View.defaultView
-        |> Spa.addStaticPathPage mappers [] Home.page
-        |> Spa.addStaticPathPage mappers [ "sign-in" ] SignIn.page
-        |> Spa.addStaticPathPage mappers [ "counter" ] Counter.page
-        |> Spa.addStaticPathPage mappers [ "time" ] Time.page
+    Spa.initNoShared Route.toRoute View.defaultView
+        |> Spa.addPage mappers Route.matchHome Home.page
+        |> Spa.addPage mappers Route.matchSignIn SignIn.page
+        |> Spa.addPage mappers Route.matchCounter Counter.page
+        |> Spa.addPage mappers Route.matchTime Time.page
         |> Spa.application { toDocument = toDocument }
         |> Browser.application
 
