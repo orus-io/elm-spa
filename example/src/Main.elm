@@ -30,19 +30,5 @@ main =
         |> Spa.addPublicPage mappers Route.matchSignIn SignIn.page
         |> Spa.addProtectedPage mappers Route.matchCounter Counter.page
         |> Spa.addPublicPage mappers Route.matchTime Time.page
-        |> Spa.application { toDocument = toDocument }
+        |> Spa.application { toDocument = View.toDocument }
         |> Browser.application
-
-
-toDocument : View msg -> Document msg
-toDocument view =
-    { title = view.title
-    , body =
-        [ Element.layout
-            []
-          <|
-            Element.el
-                [ Element.centerX, Element.centerY ]
-                view.body
-        ]
-    }

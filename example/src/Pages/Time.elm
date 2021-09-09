@@ -62,7 +62,7 @@ subscriptions model =
             Sub.none
 
 
-view : Model -> View msg
+view : Model -> View Msg
 view model =
     { title = "What time is it?"
     , body =

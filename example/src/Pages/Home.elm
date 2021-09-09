@@ -18,10 +18,10 @@ view shared =
         Element.column []
             [ case Shared.identity shared of
                 Just identity ->
-                    Element.text <| "Welcome Home " ++ identity ++ " !"
+                    Element.text <| "Welcome Home " ++ identity ++ "!"
 
                 Nothing ->
-                    Element.text "Welcome Home !"
+                    Element.text "Welcome Home!"
             , Element.link []
                 { label = Element.text "Go sign-in"
                 , url = "/sign-in"
