@@ -16,7 +16,20 @@ so the easiest way to start using Elm-Spa is to copy its files and adapt them
 to your needs.
 
 
-## Concepts
+## In-depth
+
+- [App construction](#app-construction)
+- [Shared state](#shared-state)
+- [Routing](#routing)
+- [Identity management](#identity-management)
+- [Pages](#pages)
+  - [Adding pages](#adding-pages)
+  - [Effect](#effect)
+  - [Page constructor](#page-constructor)
+    - [static page](#static-page)
+    - [sandbox page](#sandbox-page)
+    - [element page](#element-page)
+- [Finalize](#finalize)
 
 ### App construction
 
@@ -45,7 +58,7 @@ main =
 In the following sections we describe the different steps of this pipeline by
 explaining the concepts.
 
-### Shared
+### Shared state
 
 The whole application will share a single TEA component that we generally call
 `Shared`. It can be anything you want, as long as you provide `init`, and
@@ -73,7 +86,7 @@ The `defaultView` property is the default view that will be used when no other
 page could be viewed, which should be _never_ once your app is properly setup
 (more on that a little further).
 
-### Route
+### Routing
 
 A hand-written Elm SPA application generally have a central `Route` type. The
 urls are parsed into a `Route` (there is a good example of that in the
@@ -274,7 +287,7 @@ toDocument view =
 
 Note that using elm-ui is not a requirement, you can totally use Html instead.
 
-### Finalize the application
+### Finalize
 
 Once all the pages are added to the application, we can change it into a record
 suitable for the `Browser.application` function.
