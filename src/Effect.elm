@@ -109,12 +109,16 @@ map fn effect =
             Batch (List.map (map fn) list)
 
 
+{-| Build an effect that performs a Task
+-}
 perform : (a -> msg) -> Task Never a -> Effect sharedMsg msg
 perform tomsg task =
     Task.perform tomsg task
         |> fromCmd
 
 
+{-| Build an effect that attempts a Task
+-}
 attempt : (Result x a -> msg) -> Task x a -> Effect sharedMsg msg
 attempt tomsg task =
     Task.attempt tomsg task
@@ -207,11 +211,15 @@ withMap mapper effect model =
     ( model, map mapper effect )
 
 
+{-| Wraps the model with an affect that performs a Task
+-}
 withPerform : (a -> msg) -> Task Never a -> model -> ( model, Effect sharedMsg msg )
 withPerform tomsg task model =
     ( model, perform tomsg task )
 
 
+{-| Wraps the model with an affect that attempts a Task
+-}
 withAttempt : (Result x a -> msg) -> Task x a -> model -> ( model, Effect sharedMsg msg )
 withAttempt tomsg task model =
     ( model, attempt tomsg task )
@@ -269,11 +277,15 @@ addMap mapper effect =
     add (map mapper effect)
 
 
+{-| Add an affect that performs a Task to an existing model-Effect pair
+-}
 addPerform : (a -> msg) -> Task Never a -> ( model, Effect sharedMsg msg ) -> ( model, Effect sharedMsg msg )
 addPerform tomsg task =
     add (perform tomsg task)
 
 
+{-| Add an affect that attempts a Task to an existing model-Effect pair
+-}
 addAttempt : (Result x a -> msg) -> Task x a -> ( model, Effect sharedMsg msg ) -> ( model, Effect sharedMsg msg )
 addAttempt tomsg task =
     add (attempt tomsg task)

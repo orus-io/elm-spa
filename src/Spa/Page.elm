@@ -1,18 +1,32 @@
-module Spa.Page exposing (..)
+module Spa.Page exposing (static, sandbox, element)
+
+{-| Provides `Page` builders
+
+@docs static, sandbox, element
+
+-}
 
 import Effect exposing (Effect)
-import Spa exposing (Page)
+import Internal exposing (Page(..))
 
 
+{-| Create a static page that has no state, only a view
+-}
 static : view -> Page flags sharedMsg view () ()
 static pageView =
-    { init = \_ -> ( (), Effect.none )
-    , update = \_ _ -> ( (), Effect.none )
-    , subscriptions = always Sub.none
-    , view = always pageView
-    }
+    Page
+        { init = \_ -> ( (), Effect.none )
+        , update = \_ _ -> ( (), Effect.none )
+        , subscriptions = always Sub.none
+        , view = always pageView
+        }
 
 
+{-| Create a "sandboxed" page that cannot communicate with the outside world.
+
+It is the page equivalent of a [sanboxed program](/packages/elm/browser/latest/Browser#sandbox)
+
+-}
 sandbox :
     { init : flags -> model
     , update : msg -> model -> model
@@ -20,13 +34,19 @@ sandbox :
     }
     -> Page flags sharedMsg view model msg
 sandbox { init, update, view } =
-    { init = init >> Effect.withNone
-    , update = \msg model -> update msg model |> Effect.withNone
-    , subscriptions = always Sub.none
-    , view = view
-    }
+    Page
+        { init = init >> Effect.withNone
+        , update = \msg model -> update msg model |> Effect.withNone
+        , subscriptions = always Sub.none
+        , view = view
+        }
 
 
+{-| Create a page that can communicate with the outside world.
+
+It is the page equivalent of a [element program](/packages/elm/browser/latest/Browser#element)
+
+-}
 element :
     { init : flags -> ( model, Effect sharedMsg msg )
     , update : msg -> model -> ( model, Effect sharedMsg msg )
@@ -35,8 +55,9 @@ element :
     }
     -> Page flags sharedMsg view model msg
 element { init, update, view, subscriptions } =
-    { init = init
-    , update = update
-    , subscriptions = subscriptions
-    , view = view
-    }
+    Page
+        { init = init
+        , update = update
+        , subscriptions = subscriptions
+        , view = view
+        }

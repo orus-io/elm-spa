@@ -1,9 +1,37 @@
-module Spa exposing (..)
+module Spa exposing
+    ( init
+    , addPublicPage
+    , application
+    , addProtectedPage
+    )
+
+{-|
+
+
+# Create the application
+
+@docs init
+
+
+# Add pages
+
+@docs addPublicPage, addProtectedPage`
+
+
+# Finalize
+
+Once all the pages are added to the application, we can change it into a record
+suitable for the `Browser.application` function.
+
+@docs application
+
+-}
 
 import Browser exposing (Document, UrlRequest)
 import Browser.Navigation as Nav
 import Effect exposing (Effect)
 import Html
+import Internal exposing (PageDefinition)
 import Url exposing (Url)
 import Url.Parser exposing ((</>), Parser)
 
@@ -68,11 +96,7 @@ mapPreviousMsg msg =
 
 
 type alias Page flags sharedMsg view model msg =
-    { init : flags -> ( model, Effect sharedMsg msg )
-    , update : msg -> model -> ( model, Effect sharedMsg msg )
-    , subscriptions : model -> Sub msg
-    , view : model -> view
-    }
+    Internal.Page flags sharedMsg view model msg
 
 
 type PageSetup flags identity shared sharedMsg view model msg
@@ -118,6 +142,19 @@ type alias Builder flags route identity shared sharedMsg view current previous p
     }
 
 
+{-| Bootstrap a Spa application
+
+    Spa.init
+        { init = Shared.init
+        , subscriptions = Shared.subscriptions
+        , update = Shared.update
+        , defaultView = View.defaultView
+        , toRoute = Route.toRoute
+        , extractIdentity = Shared.identity
+        , protectPage = Route.toUrl >> Just >> Route.SignIn >> Route.toUrl
+        }
+
+-}
 init :
     { init : Nav.Key -> flags -> ( shared, Cmd sharedMsg )
     , subscriptions : shared -> Sub sharedMsg
@@ -194,17 +231,19 @@ setupPage :
     (shared -> Maybe identity)
     -> shared
     -> PageSetup pageFlags identity shared sharedMsg pageView currentPageModel currentPageMsg
-    -> Maybe (Page pageFlags sharedMsg pageView currentPageModel currentPageMsg)
+    -> Maybe (PageDefinition pageFlags sharedMsg pageView currentPageModel currentPageMsg)
 setupPage extractIdentity shared page =
     case page of
         PublicPage setup ->
-            Just <| setup shared
+            Just <| Internal.pageDefinition <| setup shared
 
         ProtectedPage setup ->
             extractIdentity shared
-                |> Maybe.map (setup shared)
+                |> Maybe.map (setup shared >> Internal.pageDefinition)
 
 
+{-| Add a public page to the application
+-}
 addPublicPage :
     ( (currentPageMsg -> Msg sharedMsg (PageMsg currentPageMsg previousPageMsg)) -> pageView -> view
     , (Msg sharedMsg previousPageMsg -> Msg sharedMsg (PageMsg currentPageMsg previousPageMsg)) -> previousView -> view
@@ -217,6 +256,8 @@ addPublicPage mappers matchRoute page =
     addPage mappers matchRoute (PublicPage page)
 
 
+{-| Add a protected page to the application
+-}
 addProtectedPage :
     ( (currentPageMsg -> Msg sharedMsg (PageMsg currentPageMsg previousPageMsg)) -> pageView -> view
     , (Msg sharedMsg previousPageMsg -> Msg sharedMsg (PageMsg currentPageMsg previousPageMsg)) -> previousView -> view
@@ -429,6 +470,15 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
     }
 
 
+{-| Finalize the Spa application into a record suitable for the `Browser.application`
+
+`toDocument` is a function that convert a view to a `Browser.Document`
+
+    appWithPages
+        |> Spa.application { toDocument = View.toDocument }
+        |> Browser.application
+
+-}
 application :
     { toDocument : view -> Document (Msg sharedMsg pageMsg) }
     -> Builder flags route identity shared sharedMsg view current previous pageMsg
