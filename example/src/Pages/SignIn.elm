@@ -63,11 +63,11 @@ view model =
                     }
                 , Input.button [ Border.width 1, Element.paddingXY 20 10 ]
                     { label = Element.text "I am Marie"
-                    , onPress = Just (Login "Bernard")
+                    , onPress = Just (Login "Marie")
                     }
                 , Input.button [ Border.width 1, Element.paddingXY 20 10 ]
                     { label = Element.text "I am René"
-                    , onPress = Just (Login "Bernard")
+                    , onPress = Just (Login "René")
                     }
                 ]
             , Element.text <| "you will be redirected to " ++ Maybe.withDefault "/" model.redirect ++ " after login"
