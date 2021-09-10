@@ -159,7 +159,7 @@ It differs from a normal application in a few different ways:
 #### Adding pages
 
 Adding a page to an application is done by calling the `Spa.addPublicPage`
-function. It takes 3 arguments:
+or the `Spa.addProtectedPage` function. It takes 3 arguments:
 
 - `mappers` is a Tuple of view mappers. For example, if the application view is
   a `Html msg`, the mappers will be: `( Html.map, Html.map )`. The duplication
@@ -193,7 +193,19 @@ function. It takes 3 arguments:
               Nothing
   ```
 
-- `page` is a page constructor.
+- `page` is a page constructor. A public page constructor is a function that
+  takes the shared state:
+
+  ```elm
+  page : shared -> Page
+  ```
+
+  A protected page constructor takes the current
+  identity in addition to the shared state:
+
+  ```elm
+  page : shared -> identity -> Page
+  ```
 
 #### Effect
 
