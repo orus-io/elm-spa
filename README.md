@@ -10,11 +10,12 @@ The key idea to avoid code generation is taken from
 
 ## Quickstart
 
-The most complete documentation so far is the [example
-application](https://github.com/orus-io/elm-spa/tree/master/example/src),
-so the easiest way to start using Elm-Spa is to copy its files and adapt them
-to your needs.
+The easiest way to start using Elm-Spa is to copy the [example
+application](https://github.com/orus-io/elm-spa/tree/master/example/src) files
+and adapt them to your needs.
 
+To better understand the example code, keep reading, we'll cover all the
+concepts.
 
 ## In-depth
 
