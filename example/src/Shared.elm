@@ -19,8 +19,8 @@ identity =
     .identity
 
 
-init : Nav.Key -> () -> ( Shared, Cmd Msg )
-init key _ =
+init : () -> Nav.Key -> ( Shared, Cmd Msg )
+init _ key =
     ( { key = key
       , identity = Nothing
       }

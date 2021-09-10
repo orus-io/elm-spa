@@ -51,7 +51,7 @@ main =
         |> Spa.addPublicPage mappers Route.matchSignIn SignIn.page
         |> Spa.addProtectedPage mappers Route.matchCounter Counter.page
         |> Spa.addPublicPage mappers Route.matchTime Time.page
-        |> Spa.application { toDocument = View.toDocument }
+        |> Spa.application { toDocument = toDocument }
         |> Browser.application
 ```
 
@@ -290,8 +290,8 @@ map tomsg view =
     }
 
 -- change the view into a Document
-toDocument : View msg -> Document msg
-toDocument view =
+toDocument : Shared -> View msg -> Document msg
+toDocument _ view =
     { title = view.title
     , body = Element.layout [] view.body
     }
@@ -309,7 +309,7 @@ This operation is done by the `Spa.application` function, that takes the
 
 ```elm
 -- ...
-        |> Spa.application { toDocument = View.toDocument }
+        |> Spa.application { toDocument = toDocument }
         |> Browser.application
 ```
 

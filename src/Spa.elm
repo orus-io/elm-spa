@@ -156,7 +156,7 @@ type alias Builder flags route identity shared sharedMsg view current previous p
 
 -}
 init :
-    { init : Nav.Key -> flags -> ( shared, Cmd sharedMsg )
+    { init : flags -> Nav.Key -> ( shared, Cmd sharedMsg )
     , subscriptions : shared -> Sub sharedMsg
     , update : sharedMsg -> shared -> ( shared, Cmd sharedMsg )
     , defaultView : view
@@ -191,7 +191,7 @@ initNoShared toRoute defaultView =
 
 
 builderInit :
-    (Nav.Key -> flags -> ( shared, Cmd sharedMsg ))
+    (flags -> Nav.Key -> ( shared, Cmd sharedMsg ))
     -> flags
     -> Url
     -> Nav.Key
@@ -199,7 +199,7 @@ builderInit :
 builderInit sharedInit flags url key =
     let
         ( shared, sharedCmd ) =
-            sharedInit key flags
+            sharedInit flags key
     in
     ( initModel key shared, Cmd.map SharedMsg sharedCmd )
 
@@ -365,7 +365,8 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
 
                                 Nothing ->
                                     ( { model | page = NoPage }
-                                    , Nav.replaceUrl model.key (builder.protectPage pageRoute)
+                                    , Nav.replaceUrl model.key
+                                        (builder.protectPage pageRoute)
                                     )
 
                         Nothing ->
@@ -386,12 +387,32 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
                     let
                         ( modelPreviousNew, previousCmd ) =
                             builder.update (SharedMsg sharedMsg) (modelPrevious model)
+
+                        ( newPage, newPageEffect ) =
+                            case ( modelPreviousNew.page, model.page ) of
+                                ( NoPage, Current route _ ) ->
+                                    case setupPage builder.extractIdentity modelPreviousNew.shared page of
+                                        Just setup ->
+                                            -- the page is still accessible
+                                            ( model.page, Cmd.none )
+
+                                        Nothing ->
+                                            ( NoPage, Nav.replaceUrl model.key (builder.protectPage route) )
+
+                                ( NoPage, _ ) ->
+                                    ( NoPage, Cmd.none )
+
+                                ( previous, _ ) ->
+                                    ( Previous previous, Cmd.none )
                     in
                     ( { key = modelPreviousNew.key
                       , shared = modelPreviousNew.shared
-                      , page = Previous modelPreviousNew.page
+                      , page = newPage
                       }
-                    , previousCmd |> Cmd.map mapPreviousMsg
+                    , Cmd.batch
+                        [ previousCmd |> Cmd.map mapPreviousMsg
+                        , newPageEffect |> Cmd.map (CurrentMsg >> PageMsg)
+                        ]
                     )
 
                 UrlRequest urlRequest ->
@@ -480,7 +501,7 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
 
 -}
 application :
-    { toDocument : view -> Document (Msg sharedMsg pageMsg) }
+    { toDocument : shared -> view -> Document (Msg sharedMsg pageMsg) }
     -> Builder flags route identity shared sharedMsg view current previous pageMsg
     ->
         { init : flags -> Url -> Nav.Key -> ( Model route shared current previous, Cmd (Msg sharedMsg pageMsg) )
@@ -492,7 +513,7 @@ application :
         }
 application { toDocument } builder =
     { init = builder.init
-    , view = builder.view >> toDocument
+    , view = \model -> builder.view model |> toDocument model.shared
     , update = builder.update
     , subscriptions = builder.subscriptions
     , onUrlRequest = UrlRequest

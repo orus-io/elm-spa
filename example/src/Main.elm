@@ -16,6 +16,20 @@ mappers =
     ( View.map, View.map )
 
 
+toDocument : Shared -> View msg -> Document msg
+toDocument _ view =
+    { title = view.title
+    , body =
+        [ Element.layout
+            []
+          <|
+            Element.el
+                [ Element.centerX, Element.centerY ]
+                view.body
+        ]
+    }
+
+
 main =
     Spa.init
         { init = Shared.init
@@ -30,5 +44,5 @@ main =
         |> Spa.addPublicPage mappers Route.matchSignIn SignIn.page
         |> Spa.addProtectedPage mappers Route.matchCounter Counter.page
         |> Spa.addPublicPage mappers Route.matchTime Time.page
-        |> Spa.application { toDocument = View.toDocument }
+        |> Spa.application { toDocument = toDocument }
         |> Browser.application
