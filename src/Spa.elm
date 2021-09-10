@@ -1,8 +1,7 @@
 module Spa exposing
-    ( init
-    , addPublicPage
+    ( init, initNoShared
+    , addPublicPage, addProtectedPage
     , application
-    , addProtectedPage
     )
 
 {-|
@@ -10,12 +9,12 @@ module Spa exposing
 
 # Create the application
 
-@docs init
+@docs init, initNoShared
 
 
 # Add pages
 
-@docs addPublicPage, addProtectedPage`
+@docs addPublicPage, addProtectedPage
 
 
 # Finalize
@@ -177,6 +176,8 @@ init shared =
     }
 
 
+{-| Bootstrap a Spa application that has no Shared state
+-}
 initNoShared : (Url -> route) -> view -> Builder () route () () () view () () ()
 initNoShared toRoute defaultView =
     init
