@@ -285,15 +285,9 @@ addPage :
     -> Builder flags route identity shared sharedMsg previousView prev prevprev previousPageMsg
     -> Builder flags route identity shared sharedMsg view currentPageModel (PageModel route prev prevprev) (PageMsg currentPageMsg previousPageMsg)
 addPage ( viewMap1, viewMap2 ) matchRoute page builder =
-    { toRoute = builder.toRoute
-    , extractIdentity = builder.extractIdentity
-    , protectPage = builder.protectPage
-    , init =
-        \flags url key ->
+    let
+        setupCurrentPage ( model, previousCmd ) =
             let
-                ( model, previousCmd ) =
-                    builder.init flags url key
-
                 ( pageModel, cmd ) =
                     case model.page of
                         NoPage ->
@@ -311,7 +305,7 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
                                             )
 
                                         Nothing ->
-                                            ( NoPage, Nav.replaceUrl key (builder.protectPage model.currentRoute) )
+                                            ( NoPage, Nav.replaceUrl model.key (builder.protectPage model.currentRoute) )
 
                                 Nothing ->
                                     ( NoPage, Cmd.none )
@@ -330,6 +324,14 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
                 , cmd
                 ]
             )
+    in
+    { toRoute = builder.toRoute
+    , extractIdentity = builder.extractIdentity
+    , protectPage = builder.protectPage
+    , init =
+        \flags url key ->
+            builder.init flags url key
+                |> setupCurrentPage
     , subscriptions =
         \model ->
             case model.page of
@@ -432,47 +434,8 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
                             )
 
                 UrlChange url ->
-                    let
-                        ( previousModel, previousCmd ) =
-                            builder.update (UrlChange url) (modelPrevious model)
-
-                        ( pageModel, cmd ) =
-                            case previousModel.page of
-                                NoPage ->
-                                    case previousModel.currentRoute |> matchRoute of
-                                        Just pageFlags ->
-                                            case setupPage builder.extractIdentity previousModel.shared page of
-                                                Just setup ->
-                                                    let
-                                                        ( currentPage, currentPageEffect ) =
-                                                            setup.init pageFlags
-                                                    in
-                                                    ( Current currentPage
-                                                    , currentPageEffect
-                                                        |> Effect.toCmd ( SharedMsg, CurrentMsg >> PageMsg )
-                                                    )
-
-                                                Nothing ->
-                                                    ( NoPage, Nav.replaceUrl model.key <| builder.protectPage previousModel.currentRoute )
-
-                                        Nothing ->
-                                            ( NoPage, Cmd.none )
-
-                                prevPage ->
-                                    ( Previous prevPage
-                                    , Cmd.none
-                                    )
-                    in
-                    ( { key = model.key
-                      , currentRoute = previousModel.currentRoute
-                      , shared = model.shared
-                      , page = pageModel
-                      }
-                    , Cmd.batch
-                        [ previousCmd |> Cmd.map mapPreviousMsg
-                        , cmd
-                        ]
-                    )
+                    builder.update (UrlChange url) (modelPrevious model)
+                        |> setupCurrentPage
     , view =
         \model ->
             case model.page of
