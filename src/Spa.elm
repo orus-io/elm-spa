@@ -42,7 +42,7 @@ type PageMsg current previous
 
 type PageModel route current previous
     = NoPage
-    | Current route current
+    | Current current
     | Previous previous
 
 
@@ -54,18 +54,18 @@ previousPageModel page =
         Previous previous ->
             previous
 
-        Current _ _ ->
+        Current _ ->
             NoPage
 
         NoPage ->
             NoPage
 
 
-currentPageModel : PageModel route current previous -> Maybe ( route, current )
+currentPageModel : PageModel route current previous -> Maybe current
 currentPageModel page =
     case page of
-        Current route model ->
-            Just ( route, model )
+        Current model ->
+            Just model
 
         _ ->
             Nothing
@@ -105,6 +105,7 @@ type PageSetup flags identity shared sharedMsg view model msg
 
 type alias Model route shared current previous =
     { key : Nav.Key
+    , currentRoute : route
     , shared : shared
     , page : PageModel route current previous
     }
@@ -113,6 +114,7 @@ type alias Model route shared current previous =
 modelPrevious : Model route shared current (PageModel route previous previous2) -> Model route shared previous previous2
 modelPrevious model =
     { key = model.key
+    , currentRoute = model.currentRoute
     , shared = model.shared
     , page = previousPageModel model.page
     }
@@ -122,9 +124,10 @@ type alias NoPageModel route shared =
     Model route shared () ()
 
 
-initModel : Nav.Key -> shared -> NoPageModel route shared
-initModel key shared =
+initModel : route -> Nav.Key -> shared -> NoPageModel route shared
+initModel route key shared =
     { key = key
+    , currentRoute = route
     , shared = shared
     , page = NoPage
     }
@@ -165,9 +168,9 @@ init :
     }
     -> Builder flags route identity shared sharedMsg view () () ()
 init shared =
-    { init = builderInit shared.init
+    { init = builderInit shared.toRoute shared.init
     , subscriptions = always Sub.none
-    , update = builderRootUpdate shared.update
+    , update = builderRootUpdate shared.toRoute shared.update
     , view =
         always shared.defaultView
     , toRoute = shared.toRoute
@@ -192,25 +195,27 @@ initNoShared toRoute defaultView =
 
 
 builderInit :
-    (flags -> Nav.Key -> ( shared, Cmd sharedMsg ))
+    (Url -> route)
+    -> (flags -> Nav.Key -> ( shared, Cmd sharedMsg ))
     -> flags
     -> Url
     -> Nav.Key
     -> ( Model route shared () (), Cmd (Msg sharedMsg ()) )
-builderInit sharedInit flags url key =
+builderInit toRoute sharedInit flags url key =
     let
         ( shared, sharedCmd ) =
             sharedInit flags key
     in
-    ( initModel key shared, Cmd.map SharedMsg sharedCmd )
+    ( initModel (toRoute url) key shared, Cmd.map SharedMsg sharedCmd )
 
 
 builderRootUpdate :
-    (sharedMsg -> shared -> ( shared, Cmd sharedMsg ))
+    (Url -> route)
+    -> (sharedMsg -> shared -> ( shared, Cmd sharedMsg ))
     -> Msg sharedMsg ()
     -> Model route shared () ()
     -> ( Model route shared () (), Cmd (Msg sharedMsg ()) )
-builderRootUpdate sharedUpdate msg model =
+builderRootUpdate toRoute sharedUpdate msg model =
     case msg of
         SharedMsg sharedMsg ->
             let
@@ -220,7 +225,7 @@ builderRootUpdate sharedUpdate msg model =
             ( { model | shared = sharedNew }, Cmd.map SharedMsg sharedCmd )
 
         UrlChange url ->
-            ( { model | page = NoPage }, Cmd.none )
+            ( { model | page = NoPage, currentRoute = toRoute url }, Cmd.none )
 
         _ ->
             -- XXX: This is an unexpected situation. We may want to report this
@@ -292,11 +297,7 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
                 ( pageModel, cmd ) =
                     case model.page of
                         NoPage ->
-                            let
-                                route =
-                                    builder.toRoute url
-                            in
-                            case route |> matchRoute of
+                            case model.currentRoute |> matchRoute of
                                 Just pageFlags ->
                                     case setupPage builder.extractIdentity model.shared page of
                                         Just setup ->
@@ -304,13 +305,13 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
                                                 ( currentPage, currentPageEffect ) =
                                                     setup.init pageFlags
                                             in
-                                            ( Current route currentPage
+                                            ( Current currentPage
                                             , currentPageEffect
                                                 |> Effect.toCmd ( SharedMsg, CurrentMsg >> PageMsg )
                                             )
 
                                         Nothing ->
-                                            ( NoPage, Nav.replaceUrl key (builder.protectPage route) )
+                                            ( NoPage, Nav.replaceUrl key (builder.protectPage model.currentRoute) )
 
                                 Nothing ->
                                     ( NoPage, Cmd.none )
@@ -319,6 +320,7 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
                             ( Previous prevPage, Cmd.none )
             in
             ( { key = model.key
+              , currentRoute = model.currentRoute
               , shared = model.shared
               , page = pageModel
               }
@@ -331,7 +333,7 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
     , subscriptions =
         \model ->
             case model.page of
-                Current _ current ->
+                Current current ->
                     case setupPage builder.extractIdentity model.shared page of
                         Just setup ->
                             setup.subscriptions current
@@ -351,7 +353,7 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
             case msg of
                 PageMsg (CurrentMsg pageMsg) ->
                     case currentPageModel model.page of
-                        Just ( pageRoute, pageModel ) ->
+                        Just pageModel ->
                             case setupPage builder.extractIdentity model.shared page of
                                 Just setup ->
                                     let
@@ -359,7 +361,7 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
                                             setup.update pageMsg pageModel
                                     in
                                     ( { model
-                                        | page = Current pageRoute pageModelNew
+                                        | page = Current pageModelNew
                                       }
                                     , Effect.toCmd ( SharedMsg, CurrentMsg >> PageMsg ) pageEffect
                                     )
@@ -367,7 +369,7 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
                                 Nothing ->
                                     ( { model | page = NoPage }
                                     , Nav.replaceUrl model.key
-                                        (builder.protectPage pageRoute)
+                                        (builder.protectPage model.currentRoute)
                                     )
 
                         Nothing ->
@@ -391,14 +393,14 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
 
                         ( newPage, newPageEffect ) =
                             case ( modelPreviousNew.page, model.page ) of
-                                ( NoPage, Current route _ ) ->
+                                ( NoPage, Current _ ) ->
                                     case setupPage builder.extractIdentity modelPreviousNew.shared page of
                                         Just setup ->
                                             -- the page is still accessible
                                             ( model.page, Cmd.none )
 
                                         Nothing ->
-                                            ( NoPage, Nav.replaceUrl model.key (builder.protectPage route) )
+                                            ( NoPage, Nav.replaceUrl model.key (builder.protectPage model.currentRoute) )
 
                                 ( NoPage, _ ) ->
                                     ( NoPage, Cmd.none )
@@ -407,6 +409,7 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
                                     ( Previous previous, Cmd.none )
                     in
                     ( { key = modelPreviousNew.key
+                      , currentRoute = model.currentRoute
                       , shared = modelPreviousNew.shared
                       , page = newPage
                       }
@@ -436,25 +439,21 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
                         ( pageModel, cmd ) =
                             case previousModel.page of
                                 NoPage ->
-                                    let
-                                        route =
-                                            builder.toRoute url
-                                    in
-                                    case route |> matchRoute of
+                                    case previousModel.currentRoute |> matchRoute of
                                         Just pageFlags ->
-                                            case setupPage builder.extractIdentity model.shared page of
+                                            case setupPage builder.extractIdentity previousModel.shared page of
                                                 Just setup ->
                                                     let
                                                         ( currentPage, currentPageEffect ) =
                                                             setup.init pageFlags
                                                     in
-                                                    ( Current route currentPage
+                                                    ( Current currentPage
                                                     , currentPageEffect
                                                         |> Effect.toCmd ( SharedMsg, CurrentMsg >> PageMsg )
                                                     )
 
                                                 Nothing ->
-                                                    ( NoPage, Nav.replaceUrl model.key <| builder.protectPage route )
+                                                    ( NoPage, Nav.replaceUrl model.key <| builder.protectPage previousModel.currentRoute )
 
                                         Nothing ->
                                             ( NoPage, Cmd.none )
@@ -465,6 +464,7 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
                                     )
                     in
                     ( { key = model.key
+                      , currentRoute = previousModel.currentRoute
                       , shared = model.shared
                       , page = pageModel
                       }
@@ -476,7 +476,7 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
     , view =
         \model ->
             case model.page of
-                Current route pageModel ->
+                Current pageModel ->
                     case setupPage builder.extractIdentity model.shared page of
                         Just setup ->
                             setup.view pageModel
