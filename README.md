@@ -315,7 +315,7 @@ This operation is done by the `Spa.application` function, that takes the
 ```
 
 
-## Aknowlegments
+## Acknowlegments
 
 This package borrows brilliant ideas and concepts from many packages, but most
 notably:
