@@ -1,19 +1,20 @@
 {
-    "type": "package",
-    "name": "orus-io/elm-spa",
-    "summary": "A set of tools to easily build Single Page Application",
-    "license": "MIT",
-    "version": "1.0.0",
-    "exposed-modules": [
-        "Effect",
-        "Spa"
-    ],
-    "elm-version": "0.19.0 <= v < 0.20.0",
-    "dependencies": {
-        "elm/browser": "1.0.2 <= v < 2.0.0",
-        "elm/core": "1.0.5 <= v < 2.0.0",
-        "elm/html": "1.0.0 <= v < 2.0.0",
-        "elm/url": "1.0.0 <= v < 2.0.0"
-    },
-    "test-dependencies": {}
+  "type": "package",
+  "name": "orus-io/elm-spa",
+  "summary": "A set of tools to easily build Single Page Application",
+  "license": "MIT",
+  "version": "1.0.0",
+  "exposed-modules": [
+    "Effect",
+    "Spa",
+    "Spa.Page"
+  ],
+  "elm-version": "0.19.0 <= v < 0.20.0",
+  "dependencies": {
+    "elm/browser": "1.0.2 <= v < 2.0.0",
+    "elm/core": "1.0.5 <= v < 2.0.0",
+    "elm/html": "1.0.0 <= v < 2.0.0",
+    "elm/url": "1.0.0 <= v < 2.0.0"
+  },
+  "test-dependencies": {}
 }
