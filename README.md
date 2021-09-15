@@ -6,7 +6,8 @@ It provides the same features as [ryannhg/elm-spa](https://www.elm-spa.dev/)
 but without any code generation.
 
 The key idea to avoid code generation is taken from
-[insurello/elm-ui-explorer](https://package.elm-lang.org/packages/insurello/elm-ui-explorer/latest/).
+[insurello/elm-ui-explorer](https://package.elm-lang.org/packages/insurello/elm-ui-explorer/latest/)
+(see the aknowlegments).
 
 ## Quickstart
 
@@ -320,6 +321,12 @@ This operation is done by the `Spa.application` function, that takes the
 This package borrows brilliant ideas and concepts from many packages, but most
 notably:
 
-- [ryannhg/elm-spa](https://www.elm-spa.dev/)
-- [insurello/elm-ui-explorer](https://package.elm-lang.org/packages/insurello/elm-ui-explorer/latest/).
-- [Janiczek/cmd-extra](https://package.elm-lang.org/packages/Janiczek/cmd-extra/latest/)
+- [ryannhg/elm-spa](https://www.elm-spa.dev/), for the simple yet powerful idea
+  of a Shared state and a Effect module
+- [insurello/elm-ui-explorer](https://package.elm-lang.org/packages/insurello/elm-ui-explorer/latest/),
+  for the mind-blowing pattern for building a generic complex type layer by
+  layer, each layer nesting the model and message of the previous one.
+- [Janiczek/cmd-extra](https://package.elm-lang.org/packages/Janiczek/cmd-extra/latest/),
+  for the .withXXX and .addXXX API
+- [rtfeldman/elm-spa-example](https://github.com/rtfeldman/elm-spa-example/)
+  for being the general inspiration of a proper SPA architecture.
