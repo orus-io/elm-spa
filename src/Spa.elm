@@ -174,7 +174,7 @@ init :
     -> Builder flags route identity shared sharedMsg view () () ()
 init shared =
     { init = builderInit shared.toRoute shared.init
-    , subscriptions = always Sub.none
+    , subscriptions = \( core, _ ) -> shared.subscriptions core.shared |> Sub.map SharedMsg
     , update = builderRootUpdate shared.toRoute shared.update
     , view =
         always shared.defaultView
@@ -335,22 +335,22 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
                 |> setupCurrentPage
     , subscriptions =
         \( core, currentPage ) ->
-            case currentPage of
-                Current current ->
-                    case setupPage builder.extractIdentity core.shared page of
-                        Just setup ->
-                            setup.subscriptions current
-                                |> Sub.map (CurrentMsg >> PageMsg)
+            Sub.batch
+                [ case currentPage of
+                    Current current ->
+                        case setupPage builder.extractIdentity core.shared page of
+                            Just setup ->
+                                setup.subscriptions current
+                                    |> Sub.map (CurrentMsg >> PageMsg)
 
-                        Nothing ->
-                            Sub.none
+                            Nothing ->
+                                Sub.none
 
-                Previous previous ->
-                    builder.subscriptions (modelPrevious ( core, currentPage ))
-                        |> Sub.map mapPreviousMsg
-
-                NoPage ->
-                    Sub.none
+                    _ ->
+                        Sub.none
+                , builder.subscriptions (modelPrevious ( core, currentPage ))
+                    |> Sub.map mapPreviousMsg
+                ]
     , update =
         \msg ( core, currentPage ) ->
             case msg of
