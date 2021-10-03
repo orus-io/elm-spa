@@ -18,6 +18,14 @@ and adapt them to your needs.
 To better understand the example code, keep reading, we'll cover all the
 concepts.
 
+## Running your application
+
+When developing, it is recommended to use ``elm-live`` to run the application:
+
+```sh
+elm-live --pushstate src/Main.elm
+```
+
 ## In-depth
 
 - [App construction](#app-construction)
