@@ -23,7 +23,7 @@ concepts.
 When developing, it is recommended to use ``elm-live`` to run the application:
 
 ```sh
-elm-live --pushstate src/Main.elm
+elm-live --pushstate -- src/Main.elm
 ```
 
 ## In-depth
