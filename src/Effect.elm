@@ -91,22 +91,59 @@ fromShared =
 [`Cmd.map`](/packages/elm/core/latest/Platform-Cmd#map).
 -}
 map : (a -> b) -> Effect sharedMsg a -> Effect sharedMsg b
-map fn effect =
-    case effect of
-        None ->
-            None
+map fn =
+    flatten
+        >> List.map
+            (\eff ->
+                case eff of
+                    None ->
+                        None
 
-        Cmd cmd ->
-            Cmd (Cmd.map fn cmd)
+                    Cmd cmd ->
+                        Cmd (Cmd.map fn cmd)
 
-        SharedCmd cmd ->
-            SharedCmd cmd
+                    SharedCmd cmd ->
+                        SharedCmd cmd
 
-        Shared msg ->
-            Shared msg
+                    Shared msg ->
+                        Shared msg
 
-        Batch list ->
-            Batch (List.map (map fn) list)
+                    Batch _ ->
+                        -- not supposed to happen thanks to 'flatten'
+                        None
+            )
+        >> (\list ->
+                case list of
+                    [] ->
+                        None
+
+                    [ single ] ->
+                        single
+
+                    multiple ->
+                        Batch multiple
+           )
+
+
+flattenHelper : List (Effect sharedMsg a) -> List (Effect sharedMsg a) -> List (Effect sharedMsg a)
+flattenHelper queue flat =
+    case queue of
+        [] ->
+            flat
+
+        None :: tail ->
+            flattenHelper tail flat
+
+        (Batch list) :: tail ->
+            flattenHelper (list ++ tail) flat
+
+        any :: tail ->
+            flattenHelper tail (any :: flat)
+
+
+flatten : Effect sharedMsg a -> List (Effect sharedMsg a)
+flatten effect =
+    flattenHelper [ effect ] []
 
 
 {-| Build an effect that performs a Task
@@ -296,19 +333,35 @@ addAttempt tomsg task =
 -}
 toCmd : ( sharedMsg -> msg, subMsg -> msg ) -> Effect sharedMsg subMsg -> Cmd msg
 toCmd ( fromSharedMsg, fromSubMsg ) effect =
-    case effect of
-        None ->
+    case
+        flatten effect
+            |> List.filterMap
+                (\e ->
+                    case e of
+                        None ->
+                            Nothing
+
+                        Cmd cmd ->
+                            Just <| Cmd.map fromSubMsg cmd
+
+                        SharedCmd cmd ->
+                            Just <| Cmd.map fromSharedMsg cmd
+
+                        Shared msg ->
+                            Task.succeed msg
+                                |> Task.perform fromSharedMsg
+                                |> Just
+
+                        Batch _ ->
+                            -- not supposed to happen after a flatten
+                            Nothing
+                )
+    of
+        [] ->
             Cmd.none
 
-        Cmd cmd ->
-            Cmd.map fromSubMsg cmd
+        [ single ] ->
+            single
 
-        SharedCmd cmd ->
-            Cmd.map fromSharedMsg cmd
-
-        Shared msg ->
-            Task.succeed msg
-                |> Task.perform fromSharedMsg
-
-        Batch list ->
-            Cmd.batch (List.map (toCmd ( fromSharedMsg, fromSubMsg )) list)
+        multiple ->
+            Cmd.batch multiple
