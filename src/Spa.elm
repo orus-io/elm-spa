@@ -2,6 +2,8 @@ module Spa exposing
     ( init, initNoShared
     , addPublicPage, addProtectedPage
     , application
+    , Builder, Model, Msg
+    , Page, PageModel, PageMsg
     )
 
 {-|
@@ -24,22 +26,30 @@ suitable for the `Browser.application` function.
 
 @docs application
 
+
+# Types
+
+@docs Builder, Model, Msg
+@docs Page, PageModel, PageMsg
+
 -}
 
 import Browser exposing (Document, UrlRequest)
 import Browser.Navigation as Nav
-import Effect exposing (Effect)
-import Html
+import Effect
 import Internal exposing (PageDefinition)
 import Url exposing (Url)
-import Url.Parser exposing ((</>), Parser)
 
 
+{-| A message type that carries page messages
+-}
 type PageMsg current previous
     = CurrentMsg current
     | PreviousMsg previous
 
 
+{-| A model for storing the active page model
+-}
 type PageModel current previous
     = NoPage
     | Current current
@@ -71,6 +81,8 @@ currentPageModel page =
             Nothing
 
 
+{-| The top-level application message type
+-}
 type Msg sharedMsg pageMsg
     = SharedMsg sharedMsg
     | PageMsg pageMsg
@@ -94,6 +106,11 @@ mapPreviousMsg msg =
             UrlChange url
 
 
+{-| A page definition
+
+See package Spa.Page for constructors
+
+-}
 type alias Page flags sharedMsg view model msg =
     Internal.Page flags sharedMsg view model msg
 
@@ -110,8 +127,10 @@ type alias CoreModel route shared =
     }
 
 
-type alias Model route shared current previous =
-    ( CoreModel route shared, PageModel current previous )
+{-| The application model
+-}
+type Model route shared current previous
+    = Model ( CoreModel route shared, PageModel current previous )
 
 
 type alias NoPageModel route shared =
@@ -119,34 +138,38 @@ type alias NoPageModel route shared =
 
 
 modelPrevious : Model route shared current (PageModel previous previous2) -> Model route shared previous previous2
-modelPrevious ( core, page ) =
-    ( core, previousPageModel page )
+modelPrevious (Model ( core, page )) =
+    Model ( core, previousPageModel page )
 
 
 modelShared : Model route shared current previous -> shared
-modelShared ( core, _ ) =
+modelShared (Model ( core, _ )) =
     core.shared
 
 
 initModel : route -> Nav.Key -> shared -> NoPageModel route shared
 initModel route key shared =
-    ( { key = key
-      , currentRoute = route
-      , shared = shared
-      }
-    , NoPage
-    )
+    Model
+        ( { key = key
+          , currentRoute = route
+          , shared = shared
+          }
+        , NoPage
+        )
 
 
-type alias Builder flags route identity shared sharedMsg view current previous pageMsg =
-    { init : flags -> Url -> Nav.Key -> ( Model route shared current previous, Cmd (Msg sharedMsg pageMsg) )
-    , view : Model route shared current previous -> view
-    , update : Msg sharedMsg pageMsg -> Model route shared current previous -> ( Model route shared current previous, Cmd (Msg sharedMsg pageMsg) )
-    , subscriptions : Model route shared current previous -> Sub (Msg sharedMsg pageMsg)
-    , toRoute : Url -> route
-    , extractIdentity : shared -> Maybe identity
-    , protectPage : route -> String
-    }
+{-| Intermediate type for building an application
+-}
+type Builder flags route identity shared sharedMsg view current previous pageMsg
+    = Builder
+        { init : flags -> Url -> Nav.Key -> ( Model route shared current previous, Cmd (Msg sharedMsg pageMsg) )
+        , view : Model route shared current previous -> view
+        , update : Msg sharedMsg pageMsg -> Model route shared current previous -> ( Model route shared current previous, Cmd (Msg sharedMsg pageMsg) )
+        , subscriptions : Model route shared current previous -> Sub (Msg sharedMsg pageMsg)
+        , toRoute : Url -> route
+        , extractIdentity : shared -> Maybe identity
+        , protectPage : route -> String
+        }
 
 
 {-| Bootstrap a Spa application
@@ -173,15 +196,16 @@ init :
     }
     -> Builder flags route identity shared sharedMsg view () () ()
 init shared =
-    { init = builderInit shared.toRoute shared.init
-    , subscriptions = \( core, _ ) -> shared.subscriptions core.shared |> Sub.map SharedMsg
-    , update = builderRootUpdate shared.toRoute shared.update
-    , view =
-        always shared.defaultView
-    , toRoute = shared.toRoute
-    , extractIdentity = shared.extractIdentity
-    , protectPage = shared.protectPage
-    }
+    Builder
+        { init = builderInit shared.toRoute shared.init
+        , subscriptions = \(Model ( core, _ )) -> shared.subscriptions core.shared |> Sub.map SharedMsg
+        , update = builderRootUpdate shared.toRoute shared.update
+        , view =
+            always shared.defaultView
+        , toRoute = shared.toRoute
+        , extractIdentity = shared.extractIdentity
+        , protectPage = shared.protectPage
+        }
 
 
 {-| Bootstrap a Spa application that has no Shared state
@@ -220,22 +244,22 @@ builderRootUpdate :
     -> Msg sharedMsg ()
     -> Model route shared () ()
     -> ( Model route shared () (), Cmd (Msg sharedMsg ()) )
-builderRootUpdate toRoute sharedUpdate msg ( core, page ) =
+builderRootUpdate toRoute sharedUpdate msg (Model ( core, page )) =
     case msg of
         SharedMsg sharedMsg ->
             let
                 ( sharedNew, sharedCmd ) =
                     sharedUpdate sharedMsg core.shared
             in
-            ( ( { core | shared = sharedNew }, page ), Cmd.map SharedMsg sharedCmd )
+            ( Model ( { core | shared = sharedNew }, page ), Cmd.map SharedMsg sharedCmd )
 
         UrlChange url ->
-            ( ( { core | currentRoute = toRoute url }, NoPage ), Cmd.none )
+            ( Model ( { core | currentRoute = toRoute url }, NoPage ), Cmd.none )
 
         _ ->
             -- XXX: This is an unexpected situation. We may want to report this
             -- somehow
-            ( ( core, page ), Cmd.none )
+            ( Model ( core, page ), Cmd.none )
 
 
 setupPage :
@@ -289,9 +313,15 @@ addPage :
     -> PageSetup pageFlags identity shared sharedMsg pageView currentPageModel currentPageMsg
     -> Builder flags route identity shared sharedMsg previousView prev prevprev previousPageMsg
     -> Builder flags route identity shared sharedMsg view currentPageModel (PageModel prev prevprev) (PageMsg currentPageMsg previousPageMsg)
-addPage ( viewMap1, viewMap2 ) matchRoute page builder =
+addPage ( viewMap1, viewMap2 ) matchRoute page (Builder builder) =
     let
-        setupCurrentPage ( ( core, currentPage ), previousCmd ) =
+        setupCurrentPage :
+            ( Model route shared current previous, Cmd (Msg sharedMsg previousPageMsg) )
+            ->
+                ( Model route shared currentPageModel (PageModel current previous)
+                , Cmd (Msg sharedMsg (PageMsg currentPageMsg previousPageMsg))
+                )
+        setupCurrentPage ( Model ( core, currentPage ), previousCmd ) =
             let
                 ( pageModel, cmd ) =
                     case currentPage of
@@ -318,7 +348,7 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
                         prevPage ->
                             ( Previous prevPage, Cmd.none )
             in
-            ( ( core, pageModel )
+            ( Model ( core, pageModel )
             , Cmd.batch
                 [ previousCmd
                     |> Cmd.map mapPreviousMsg
@@ -326,130 +356,132 @@ addPage ( viewMap1, viewMap2 ) matchRoute page builder =
                 ]
             )
     in
-    { toRoute = builder.toRoute
-    , extractIdentity = builder.extractIdentity
-    , protectPage = builder.protectPage
-    , init =
-        \flags url key ->
-            builder.init flags url key
-                |> setupCurrentPage
-    , subscriptions =
-        \( core, currentPage ) ->
-            Sub.batch
-                [ case currentPage of
-                    Current current ->
-                        case setupPage builder.extractIdentity core.shared page of
-                            Just setup ->
-                                setup.subscriptions current
-                                    |> Sub.map (CurrentMsg >> PageMsg)
-
-                            Nothing ->
-                                Sub.none
-
-                    _ ->
-                        Sub.none
-                , builder.subscriptions (modelPrevious ( core, currentPage ))
-                    |> Sub.map mapPreviousMsg
-                ]
-    , update =
-        \msg ( core, currentPage ) ->
-            case msg of
-                PageMsg (CurrentMsg pageMsg) ->
-                    case currentPageModel currentPage of
-                        Just pageModel ->
+    Builder
+        { toRoute = builder.toRoute
+        , extractIdentity = builder.extractIdentity
+        , protectPage = builder.protectPage
+        , init =
+            \flags url key ->
+                builder.init flags url key
+                    |> setupCurrentPage
+        , subscriptions =
+            \(Model ( core, currentPage )) ->
+                Sub.batch
+                    [ case currentPage of
+                        Current current ->
                             case setupPage builder.extractIdentity core.shared page of
                                 Just setup ->
-                                    let
-                                        ( pageModelNew, pageEffect ) =
-                                            setup.update pageMsg pageModel
-                                    in
-                                    ( ( core, Current pageModelNew )
-                                    , Effect.toCmd ( SharedMsg, CurrentMsg >> PageMsg ) pageEffect
-                                    )
+                                    setup.subscriptions current
+                                        |> Sub.map (CurrentMsg >> PageMsg)
 
                                 Nothing ->
-                                    ( ( core, NoPage )
-                                    , Nav.replaceUrl core.key
-                                        (builder.protectPage core.currentRoute)
-                                    )
+                                    Sub.none
 
-                        Nothing ->
-                            ( ( core, currentPage ), Cmd.none )
+                        _ ->
+                            Sub.none
+                    , builder.subscriptions (modelPrevious (Model ( core, currentPage )))
+                        |> Sub.map mapPreviousMsg
+                    ]
+        , update =
+            \msg (Model ( core, currentPage )) ->
+                case msg of
+                    PageMsg (CurrentMsg pageMsg) ->
+                        case currentPageModel currentPage of
+                            Just pageModel ->
+                                case setupPage builder.extractIdentity core.shared page of
+                                    Just setup ->
+                                        let
+                                            ( pageModelNew, pageEffect ) =
+                                                setup.update pageMsg pageModel
+                                        in
+                                        ( Model ( core, Current pageModelNew )
+                                        , Effect.toCmd ( SharedMsg, CurrentMsg >> PageMsg ) pageEffect
+                                        )
 
-                PageMsg (PreviousMsg pageMsg) ->
-                    let
-                        ( ( previousCore, previousPage ), previousCmd ) =
-                            builder.update (PageMsg pageMsg) (modelPrevious ( core, currentPage ))
-                    in
-                    ( ( core, Previous previousPage )
-                    , previousCmd |> Cmd.map mapPreviousMsg
-                    )
+                                    Nothing ->
+                                        ( Model ( core, NoPage )
+                                        , Nav.replaceUrl core.key
+                                            (builder.protectPage core.currentRoute)
+                                        )
 
-                SharedMsg sharedMsg ->
-                    let
-                        ( ( previousCore, previousPage ), previousCmd ) =
-                            builder.update (SharedMsg sharedMsg) (modelPrevious ( core, currentPage ))
+                            Nothing ->
+                                ( Model ( core, currentPage ), Cmd.none )
 
-                        ( newPage, newPageEffect ) =
-                            case ( previousPage, currentPage ) of
-                                ( NoPage, Current _ ) ->
-                                    case setupPage builder.extractIdentity previousCore.shared page of
-                                        Just setup ->
-                                            -- the page is still accessible
-                                            ( currentPage, Cmd.none )
+                    PageMsg (PreviousMsg pageMsg) ->
+                        let
+                            ( Model ( _, previousPage ), previousCmd ) =
+                                builder.update (PageMsg pageMsg) (modelPrevious (Model ( core, currentPage )))
+                        in
+                        ( Model ( core, Previous previousPage )
+                        , previousCmd |> Cmd.map mapPreviousMsg
+                        )
 
-                                        Nothing ->
-                                            ( NoPage, Nav.replaceUrl core.key (builder.protectPage core.currentRoute) )
+                    SharedMsg sharedMsg ->
+                        let
+                            ( Model ( previousCore, previousPage ), previousCmd ) =
+                                builder.update (SharedMsg sharedMsg) (modelPrevious (Model ( core, currentPage )))
 
-                                ( NoPage, _ ) ->
-                                    ( NoPage, Cmd.none )
+                            ( newPage, newPageEffect ) =
+                                case ( previousPage, currentPage ) of
+                                    ( NoPage, Current _ ) ->
+                                        case setupPage builder.extractIdentity previousCore.shared page of
+                                            Just _ ->
+                                                -- the page is still accessible
+                                                ( currentPage, Cmd.none )
 
-                                ( previous, _ ) ->
-                                    ( Previous previous, Cmd.none )
-                    in
-                    ( ( { previousCore
-                            | currentRoute = core.currentRoute
-                        }
-                      , newPage
-                      )
-                    , Cmd.batch
-                        [ previousCmd |> Cmd.map mapPreviousMsg
-                        , newPageEffect |> Cmd.map (CurrentMsg >> PageMsg)
-                        ]
-                    )
+                                            Nothing ->
+                                                ( NoPage, Nav.replaceUrl core.key (builder.protectPage core.currentRoute) )
 
-                UrlRequest urlRequest ->
-                    case urlRequest of
-                        Browser.Internal url ->
-                            ( ( core, currentPage )
-                            , Nav.pushUrl core.key (Url.toString url)
+                                    ( NoPage, _ ) ->
+                                        ( NoPage, Cmd.none )
+
+                                    ( previous, _ ) ->
+                                        ( Previous previous, Cmd.none )
+                        in
+                        ( Model
+                            ( { previousCore
+                                | currentRoute = core.currentRoute
+                              }
+                            , newPage
                             )
+                        , Cmd.batch
+                            [ previousCmd |> Cmd.map mapPreviousMsg
+                            , newPageEffect |> Cmd.map (CurrentMsg >> PageMsg)
+                            ]
+                        )
 
-                        Browser.External url ->
-                            ( ( core, currentPage )
-                            , Nav.load url
-                            )
+                    UrlRequest urlRequest ->
+                        case urlRequest of
+                            Browser.Internal url ->
+                                ( Model ( core, currentPage )
+                                , Nav.pushUrl core.key (Url.toString url)
+                                )
 
-                UrlChange url ->
-                    builder.update (UrlChange url) (modelPrevious ( core, currentPage ))
-                        |> setupCurrentPage
-    , view =
-        \( core, currentPage ) ->
-            case currentPage of
-                Current pageModel ->
-                    case setupPage builder.extractIdentity core.shared page of
-                        Just setup ->
-                            setup.view pageModel
-                                |> viewMap1 (CurrentMsg >> PageMsg)
+                            Browser.External url ->
+                                ( Model ( core, currentPage )
+                                , Nav.load url
+                                )
 
-                        Nothing ->
-                            builder.view (modelPrevious ( core, currentPage ))
-                                |> viewMap2 mapPreviousMsg
+                    UrlChange url ->
+                        builder.update (UrlChange url) (modelPrevious (Model ( core, currentPage )))
+                            |> setupCurrentPage
+        , view =
+            \(Model ( core, currentPage )) ->
+                case currentPage of
+                    Current pageModel ->
+                        case setupPage builder.extractIdentity core.shared page of
+                            Just setup ->
+                                setup.view pageModel
+                                    |> viewMap1 (CurrentMsg >> PageMsg)
 
-                _ ->
-                    builder.view (modelPrevious ( core, currentPage ))
-                        |> viewMap2 mapPreviousMsg
-    }
+                            Nothing ->
+                                builder.view (modelPrevious (Model ( core, currentPage )))
+                                    |> viewMap2 mapPreviousMsg
+
+                    _ ->
+                        builder.view (modelPrevious (Model ( core, currentPage )))
+                            |> viewMap2 mapPreviousMsg
+        }
 
 
 {-| Finalize the Spa application into a record suitable for the `Browser.application`
@@ -472,7 +504,7 @@ application :
         , onUrlRequest : UrlRequest -> Msg sharedMsg pageMsg
         , onUrlChange : Url -> Msg sharedMsg pageMsg
         }
-application { toDocument } builder =
+application { toDocument } (Builder builder) =
     { init = builder.init
     , view = \model -> builder.view model |> toDocument (modelShared model)
     , update = builder.update

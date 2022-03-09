@@ -7,14 +7,15 @@ module Spa.Page exposing (static, sandbox, element)
 -}
 
 import Effect exposing (Effect)
-import Internal exposing (Page(..))
+import Internal
+import Spa exposing (Page)
 
 
 {-| Create a static page that has no state, only a view
 -}
 static : view -> Page flags sharedMsg view () ()
 static pageView =
-    Page
+    Internal.Page
         { init = \_ -> ( (), Effect.none )
         , update = \_ _ -> ( (), Effect.none )
         , subscriptions = always Sub.none
@@ -34,7 +35,7 @@ sandbox :
     }
     -> Page flags sharedMsg view model msg
 sandbox { init, update, view } =
-    Page
+    Internal.Page
         { init = init >> Effect.withNone
         , update = \msg model -> update msg model |> Effect.withNone
         , subscriptions = always Sub.none
@@ -55,7 +56,7 @@ element :
     }
     -> Page flags sharedMsg view model msg
 element { init, update, view, subscriptions } =
-    Page
+    Internal.Page
         { init = init
         , update = update
         , subscriptions = subscriptions
