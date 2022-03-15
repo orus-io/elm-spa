@@ -1,7 +1,7 @@
 module Spa exposing
     ( init, initNoShared
     , addPublicPage, addProtectedPage
-    , application
+    , application, mapSharedMsg
     , Builder, Model, Msg
     , Page, PageModel, PageMsg
     )
@@ -24,7 +24,7 @@ module Spa exposing
 Once all the pages are added to the application, we can change it into a record
 suitable for the `Browser.application` function.
 
-@docs application
+@docs application, mapSharedMsg
 
 
 # Types
@@ -104,6 +104,16 @@ mapPreviousMsg msg =
 
         UrlChange url ->
             UrlChange url
+
+
+{-| map a shared message to top-level application message
+
+Useful to put shared msg events in the 'toDocument' function
+
+-}
+mapSharedMsg : sharedMsg -> Msg sharedMsg pageMsg
+mapSharedMsg =
+    SharedMsg
 
 
 {-| A page definition

@@ -2,6 +2,7 @@ module Main exposing (..)
 
 import Browser exposing (Document)
 import Element exposing (Element)
+import Element.Input as Input
 import Pages.Counter as Counter
 import Pages.Home as Home
 import Pages.SignIn as SignIn
@@ -12,20 +13,50 @@ import Spa
 import View exposing (View)
 
 
+mappers : ( (a -> b) -> View a -> View b, (c -> d) -> View c -> View d )
 mappers =
     ( View.map, View.map )
 
 
-toDocument : Shared -> View msg -> Document msg
-toDocument _ view =
+toDocument :
+    Shared
+    -> View (Spa.Msg Shared.Msg pageMsg)
+    -> Document (Spa.Msg Shared.Msg pageMsg)
+toDocument shared view =
     { title = view.title
     , body =
         [ Element.layout
             []
           <|
-            Element.el
-                [ Element.centerX, Element.centerY ]
-                view.body
+            Element.column
+                [ Element.width Element.fill
+                , Element.height Element.fill
+                ]
+                [ Element.row
+                    [ Element.alignRight
+                    , Element.padding 20
+                    , Element.spacing 20
+                    ]
+                  <|
+                    case shared.identity of
+                        Just username ->
+                            [ Element.text username
+                            , Input.button []
+                                { label = Element.text "logout"
+                                , onPress = Just (Spa.mapSharedMsg Shared.ResetIdentity)
+                                }
+                            ]
+
+                        Nothing ->
+                            [ Element.link []
+                                { label = Element.text "Sign-in"
+                                , url = "/sign-in"
+                                }
+                            ]
+                , Element.el
+                    [ Element.centerX, Element.centerY ]
+                    view.body
+                ]
         ]
     }
 
