@@ -3,7 +3,7 @@
     "name": "orus-io/elm-spa",
     "summary": "A set of tools to easily build Single Page Application",
     "license": "MIT",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "exposed-modules": [
         "Effect",
         "Spa",
