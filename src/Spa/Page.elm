@@ -1,14 +1,19 @@
-module Spa.Page exposing (static, sandbox, element)
+module Spa.Page exposing (Page, static, sandbox, element)
 
 {-| Provides `Page` builders
 
-@docs static, sandbox, element
+@docs Page, static, sandbox, element
 
 -}
 
 import Effect exposing (Effect)
 import Internal
-import Spa exposing (Page)
+
+
+{-| A Page is a TEA component
+-}
+type alias Page flags sharedMsg view model msg =
+    Internal.Page flags sharedMsg view model msg
 
 
 {-| Create a static page that has no state, only a view

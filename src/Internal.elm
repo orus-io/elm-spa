@@ -1,4 +1,4 @@
-module Internal exposing (Page(..), PageDefinition, pageDefinition)
+module Internal exposing (Page(..), PageDefinition)
 
 import Effect exposing (Effect)
 
@@ -13,10 +13,3 @@ type alias PageDefinition flags sharedMsg view model msg =
 
 type Page flags sharedMsg view model msg
     = Page (PageDefinition flags sharedMsg view model msg)
-
-
-pageDefinition :
-    Page flags sharedMsg view model msg
-    -> PageDefinition flags sharedMsg view model msg
-pageDefinition (Page def) =
-    def
