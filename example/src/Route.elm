@@ -9,7 +9,7 @@ import Url.Parser.Query as Query
 type Route
     = Home
     | SignIn (Maybe String)
-    | Counter
+    | Counter Int
     | Time
     | NotFound Url
 
@@ -19,7 +19,7 @@ route =
     oneOf
         [ map Home top
         , map SignIn <| s "sign-in" <?> Query.string "redirect"
-        , map Counter <| s "counter"
+        , map Counter <| s "counter" <?> (Query.int "value" |> Query.map (Maybe.withDefault 0))
         , map Time <| s "time"
         ]
 
@@ -44,8 +44,8 @@ toUrl r =
                     |> Maybe.withDefault []
                 )
 
-        Counter ->
-            "/counter"
+        Counter value ->
+            "/counter?value=" ++ String.fromInt value
 
         Time ->
             "/time"
@@ -78,9 +78,14 @@ matchSignIn r =
             Nothing
 
 
-matchCounter : Route -> Maybe ()
-matchCounter =
-    matchAny Counter
+matchCounter : Route -> Maybe Int
+matchCounter r =
+    case r of
+        Counter value ->
+            Just value
+
+        _ ->
+            Nothing
 
 
 matchTime : Route -> Maybe ()

@@ -1,8 +1,12 @@
-module Spa.Page exposing (Page, static, sandbox, element)
+module Spa.Page exposing
+    ( Page, static, sandbox, element
+    , onNewFlags
+    )
 
 {-| Provides `Page` builders
 
 @docs Page, static, sandbox, element
+@docs onNewFlags
 
 -}
 
@@ -25,6 +29,7 @@ static pageView =
         , update = \_ _ -> ( (), Effect.none )
         , subscriptions = always Sub.none
         , view = always pageView
+        , onNewFlags = Nothing
         }
 
 
@@ -45,6 +50,7 @@ sandbox { init, update, view } =
         , update = \msg model -> update msg model |> Effect.withNone
         , subscriptions = always Sub.none
         , view = view
+        , onNewFlags = Nothing
         }
 
 
@@ -66,4 +72,19 @@ element { init, update, view, subscriptions } =
         , update = update
         , subscriptions = subscriptions
         , view = view
+        , onNewFlags = Nothing
+        }
+
+
+{-| Set the message to pass when the flags changed. If not set, the 'init'
+function is called, resulting in a complete reinitialisation of the page model.
+-}
+onNewFlags :
+    (flags -> msg)
+    -> Page flags sharedMsg view model msg
+    -> Page flags sharedMsg view model msg
+onNewFlags tomsg (Internal.Page def) =
+    Internal.Page
+        { def
+            | onNewFlags = Just tomsg
         }

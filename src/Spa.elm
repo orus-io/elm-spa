@@ -79,9 +79,9 @@ modelShared { shared } =
 
 {-| The intermediate type for building an application.
 -}
-type alias Builder route identity shared sharedMsg view current previous stackMsg =
+type alias Builder route identity shared sharedMsg view current previous currentMsg previousMsg =
     { extractIdentity : shared -> Maybe identity
-    , pageStack : PageStack.Stack SetupError shared sharedMsg route view current previous stackMsg
+    , pageStack : PageStack.Stack SetupError shared sharedMsg route view current previous currentMsg previousMsg
     }
 
 
@@ -102,7 +102,7 @@ init :
     { defaultView : view
     , extractIdentity : shared -> Maybe identity
     }
-    -> Builder route identity shared sharedMsg view () () ()
+    -> Builder route identity shared sharedMsg view () () () ()
 init shared =
     { extractIdentity = shared.extractIdentity
     , pageStack = PageStack.setup { defaultView = shared.defaultView }
@@ -114,7 +114,7 @@ init shared =
 initNoShared :
     { defaultView : view
     }
-    -> Builder route () () () view () () ()
+    -> Builder route () () () view () () () ()
 initNoShared { defaultView } =
     init
         { defaultView = defaultView
@@ -125,13 +125,13 @@ initNoShared { defaultView } =
 {-| Add a public page to the application
 -}
 addPublicPage :
-    ( PageStack.CurrentViewMap currentPageMsg previousStackMsg pageView view
-    , PageStack.PreviousViewMap currentPageMsg previousStackMsg previousView view
+    ( PageStack.CurrentViewMap route currentPageMsg previousStackMsg pageView view
+    , PageStack.PreviousViewMap route currentPageMsg previousStackMsg previousView view
     )
     -> (route -> Maybe pageFlags)
     -> (shared -> Page pageFlags sharedMsg pageView currentPageModel currentPageMsg)
-    -> Builder route identity shared sharedMsg previousView previousCurrent previousPrevious previousStackMsg
-    -> Builder route identity shared sharedMsg view currentPageModel (PageStack.Model SetupError previousCurrent previousPrevious) (PageStack.Msg currentPageMsg previousStackMsg)
+    -> Builder route identity shared sharedMsg previousView previousCurrent previousPrevious previousStackCurrentMsg previousStackPreviousMsg
+    -> Builder route identity shared sharedMsg view currentPageModel (PageStack.Model SetupError previousCurrent previousPrevious) currentPageMsg (PageStack.Msg route previousStackCurrentMsg previousStackPreviousMsg)
 addPublicPage mappers matchRoute page =
     addPage mappers matchRoute (page >> Ok)
 
@@ -139,13 +139,13 @@ addPublicPage mappers matchRoute page =
 {-| Add a protected page to the application
 -}
 addProtectedPage :
-    ( PageStack.CurrentViewMap currentPageMsg previousStackMsg pageView view
-    , PageStack.PreviousViewMap currentPageMsg previousStackMsg previousView view
+    ( PageStack.CurrentViewMap route currentPageMsg previousStackMsg pageView view
+    , PageStack.PreviousViewMap route currentPageMsg previousStackMsg previousView view
     )
     -> (route -> Maybe pageFlags)
     -> (shared -> identity -> Page pageFlags sharedMsg pageView currentPageModel currentPageMsg)
-    -> Builder route identity shared sharedMsg previousView previousCurrent previousPrevious previousStackMsg
-    -> Builder route identity shared sharedMsg view currentPageModel (PageStack.Model SetupError previousCurrent previousPrevious) (PageStack.Msg currentPageMsg previousStackMsg)
+    -> Builder route identity shared sharedMsg previousView previousCurrent previousPrevious previousStackCurrentMsg previousStackPreviousMsg
+    -> Builder route identity shared sharedMsg view currentPageModel (PageStack.Model SetupError previousCurrent previousPrevious) currentPageMsg (PageStack.Msg route previousStackCurrentMsg previousStackPreviousMsg)
 addProtectedPage mappers matchRoute page builder =
     addPage mappers
         matchRoute
@@ -161,16 +161,16 @@ addProtectedPage mappers matchRoute page builder =
 
 
 addPage :
-    ( PageStack.CurrentViewMap currentPageMsg previousStackMsg pageView view
-    , PageStack.PreviousViewMap currentPageMsg previousStackMsg previousView view
+    ( PageStack.CurrentViewMap route currentPageMsg previousStackMsg pageView view
+    , PageStack.PreviousViewMap route currentPageMsg previousStackMsg previousView view
     )
     -> (route -> Maybe pageFlags)
     -> PageStack.PageSetup SetupError pageFlags shared sharedMsg pageView currentPageModel currentPageMsg
-    -> Builder route identity shared sharedMsg previousView prev prevprev previousStackMsg
-    -> Builder route identity shared sharedMsg view currentPageModel (PageStack.Model SetupError prev prevprev) (PageStack.Msg currentPageMsg previousStackMsg)
+    -> Builder route identity shared sharedMsg previousView previousCurrent previousPrevious previousStackCurrentMsg previousStackPreviousMsg
+    -> Builder route identity shared sharedMsg view currentPageModel (PageStack.Model SetupError previousCurrent previousPrevious) currentPageMsg (PageStack.Msg route previousStackCurrentMsg previousStackPreviousMsg)
 addPage mappers matchRoute page builder =
     let
-        pageStack : PageStack.Stack SetupError shared sharedMsg route view currentPageModel (PageStack.Model SetupError prev prevprev) (PageStack.Msg currentPageMsg previousStackMsg)
+        pageStack : PageStack.Stack SetupError shared sharedMsg route view currentPageModel (PageStack.Model SetupError previousCurrent previousPrevious) currentPageMsg (PageStack.Msg route previousStackCurrentMsg previousStackPreviousMsg)
         pageStack =
             builder.pageStack
                 |> PageStack.add mappers matchRoute page
@@ -190,27 +190,27 @@ addPage mappers matchRoute page builder =
 
 -}
 application :
-    ((pageMsg -> Msg sharedMsg pageMsg) -> pageView -> view)
+    ((PageStack.Msg route stackCurrentMsg stackPreviousMsg -> Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg)) -> pageView -> view)
     ->
         { toRoute : Url -> route
         , init : flags -> Nav.Key -> ( shared, Cmd sharedMsg )
         , subscriptions : shared -> Sub sharedMsg
         , update : sharedMsg -> shared -> ( shared, Cmd sharedMsg )
         , protectPage : route -> String
-        , toDocument : shared -> view -> Document (Msg sharedMsg pageMsg)
+        , toDocument : shared -> view -> Document (Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg))
         }
-    -> Builder route identity shared sharedMsg pageView current previous pageMsg
+    -> Builder route identity shared sharedMsg pageView current previous stackCurrentMsg stackPreviousMsg
     ->
-        { init : flags -> Url -> Nav.Key -> ( Model route shared current previous, Cmd (Msg sharedMsg pageMsg) )
-        , view : Model route shared current previous -> Document (Msg sharedMsg pageMsg)
-        , update : Msg sharedMsg pageMsg -> Model route shared current previous -> ( Model route shared current previous, Cmd (Msg sharedMsg pageMsg) )
-        , subscriptions : Model route shared current previous -> Sub (Msg sharedMsg pageMsg)
-        , onUrlRequest : UrlRequest -> Msg sharedMsg pageMsg
-        , onUrlChange : Url -> Msg sharedMsg pageMsg
+        { init : flags -> Url -> Nav.Key -> ( Model route shared current previous, Cmd (Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg)) )
+        , view : Model route shared current previous -> Document (Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg))
+        , update : Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg) -> Model route shared current previous -> ( Model route shared current previous, Cmd (Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg)) )
+        , subscriptions : Model route shared current previous -> Sub (Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg))
+        , onUrlRequest : UrlRequest -> Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg)
+        , onUrlChange : Url -> Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg)
         }
 application viewMap app builder =
     let
-        initPage : route -> Nav.Key -> shared -> ( PageStack.Model SetupError current previous, Cmd (Msg sharedMsg pageMsg) )
+        initPage : route -> Nav.Key -> shared -> ( PageStack.Model SetupError current previous, Cmd (Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg)) )
         initPage route key shared =
             let
                 ( page, effect ) =
@@ -290,14 +290,14 @@ application viewMap app builder =
                         route =
                             app.toRoute url
 
-                        ( page, pageCmd ) =
-                            initPage route model.key model.shared
+                        ( page, pageEffect ) =
+                            builder.pageStack.update model.shared (PageStack.routeChange route) model.page
                     in
                     ( { model
                         | currentRoute = route
                         , page = page
                       }
-                    , pageCmd
+                    , Effect.toCmd ( SharedMsg, PageMsg ) pageEffect
                     )
     , subscriptions =
         \model ->

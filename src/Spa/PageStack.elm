@@ -1,6 +1,6 @@
 module Spa.PageStack exposing
     ( Stack, setup, add
-    , Msg, Model, empty, getError
+    , Msg, Model, empty, getError, routeChange
     , PageSetup, RouteMatcher, CurrentViewMap, PreviousViewMap
     )
 
@@ -8,7 +8,7 @@ module Spa.PageStack exposing
 
 @docs Stack, setup, add
 
-@docs Msg, Model, empty, getError
+@docs Msg, Model, empty, getError, routeChange
 
 @docs PageSetup, RouteMatcher, CurrentViewMap, PreviousViewMap
 
@@ -28,19 +28,43 @@ type Model setupError current previous
     | SetupError setupError
 
 
+getPrevious : Model setupError current (Model setupError prev ante) -> Model setupError prev ante
+getPrevious model =
+    case model of
+        NoPage ->
+            NoPage
+
+        Current _ ->
+            NoPage
+
+        SetupError err ->
+            SetupError err
+
+        Previous previous ->
+            previous
+
+
 {-| The Stack Msg type
 -}
-type Msg current previous
+type Msg route current previous
     = CurrentMsg current
     | PreviousMsg previous
+    | RouteChange route
+
+
+{-| Build a message that signal a route change to the page stack
+-}
+routeChange : route -> Msg route current previous
+routeChange =
+    RouteChange
 
 
 {-| A Stack combines pages into a single TEA component
 -}
-type alias Stack setupError shared sharedMsg route view current previous msg =
-    { init : shared -> route -> ( Model setupError current previous, Effect sharedMsg msg )
-    , update : shared -> msg -> Model setupError current previous -> ( Model setupError current previous, Effect sharedMsg msg )
-    , subscriptions : shared -> Model setupError current previous -> Sub msg
+type alias Stack setupError shared sharedMsg route view current previous currentMsg previousMsg =
+    { init : shared -> route -> ( Model setupError current previous, Effect sharedMsg (Msg route currentMsg previousMsg) )
+    , update : shared -> Msg route currentMsg previousMsg -> Model setupError current previous -> ( Model setupError current previous, Effect sharedMsg (Msg route currentMsg previousMsg) )
+    , subscriptions : shared -> Model setupError current previous -> Sub (Msg route currentMsg previousMsg)
     , view : shared -> Model setupError current previous -> view
     }
 
@@ -101,7 +125,7 @@ happen if the application is properly defined.
 -}
 setup :
     { defaultView : view }
-    -> Stack setupError shared sharedMsg route view () () ()
+    -> Stack setupError shared sharedMsg route view () () () ()
 setup { defaultView } =
     { init = \_ _ -> ( NoPage, Effect.none )
     , update = \_ _ _ -> ( NoPage, Effect.none )
@@ -113,27 +137,27 @@ setup { defaultView } =
 {-| A view mapper, for example Html.map or Element.map depending on your actual
 view type.
 -}
-type alias CurrentViewMap currentMsg previousMsg pageView view =
-    (currentMsg -> Msg currentMsg previousMsg) -> pageView -> view
+type alias CurrentViewMap route currentMsg previousMsg pageView view =
+    (currentMsg -> Msg route currentMsg previousMsg) -> pageView -> view
 
 
 {-| A view mapper, for example Html.map or Element.map depending on your actual
 view type.
 -}
-type alias PreviousViewMap currentMsg previousMsg previousView view =
-    (previousMsg -> Msg currentMsg previousMsg) -> previousView -> view
+type alias PreviousViewMap route currentMsg previousMsg previousView view =
+    (previousMsg -> Msg route currentMsg previousMsg) -> previousView -> view
 
 
 {-| Add a page on a Stack
 -}
 add :
-    ( CurrentViewMap currentMsg previousMsg pageView view
-    , PreviousViewMap currentMsg previousMsg previousView view
+    ( CurrentViewMap route currentMsg previousMsg pageView view
+    , PreviousViewMap route currentMsg previousMsg previousView view
     )
     -> RouteMatcher route flags
     -> PageSetup setupError flags shared sharedMsg pageView pageModel pageMsg
-    -> Stack setupError shared sharedMsg route previousView previousCurrent previousPrevious previousMsg
-    -> Stack setupError shared sharedMsg route view pageModel (Model setupError previousCurrent previousPrevious) (Msg pageMsg previousMsg)
+    -> Stack setupError shared sharedMsg route previousView previousCurrent previousPrevious previousCurrentMsg previousPreviousMsg
+    -> Stack setupError shared sharedMsg route view pageModel (Model setupError previousCurrent previousPrevious) pageMsg (Msg route previousCurrentMsg previousPreviousMsg)
 add ( mapPageView, mapPreviousView ) match pagesetup previousStack =
     { init =
         \shared route ->
@@ -163,6 +187,43 @@ add ( mapPageView, mapPreviousView ) match pagesetup previousStack =
     , update =
         \shared msg model ->
             case ( msg, model ) of
+                ( RouteChange route, _ ) ->
+                    case match route of
+                        Just flags ->
+                            case pagesetup shared of
+                                Ok (Internal.Page page) ->
+                                    case ( page.onNewFlags, model ) of
+                                        ( Just tomsg, Current pageModel ) ->
+                                            -- we already are on the right page, and it has
+                                            -- a 'onNewFlags' message
+                                            let
+                                                ( newPageModel, pageEffect ) =
+                                                    page.update (tomsg flags) pageModel
+                                            in
+                                            ( Current newPageModel
+                                            , Effect.map CurrentMsg pageEffect
+                                            )
+
+                                        _ ->
+                                            let
+                                                ( pageModel, pageEffect ) =
+                                                    page.init flags
+                                            in
+                                            ( Current pageModel
+                                            , Effect.map CurrentMsg pageEffect
+                                            )
+
+                                Err err ->
+                                    ( SetupError err, Effect.none )
+
+                        Nothing ->
+                            -- current page doesn't match, let lower layers find the new one
+                            let
+                                ( newPreviousModel, previousEffect ) =
+                                    previousStack.update shared (RouteChange route) (getPrevious model)
+                            in
+                            ( mapPrevious newPreviousModel, Effect.map PreviousMsg previousEffect )
+
                 ( CurrentMsg pageMsg, Current pageModel ) ->
                     case pagesetup shared of
                         Ok (Internal.Page page) ->

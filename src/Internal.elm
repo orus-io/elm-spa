@@ -8,6 +8,7 @@ type alias PageDefinition flags sharedMsg view model msg =
     , update : msg -> model -> ( model, Effect sharedMsg msg )
     , subscriptions : model -> Sub msg
     , view : model -> view
+    , onNewFlags : Maybe (flags -> msg)
     }
 
 
