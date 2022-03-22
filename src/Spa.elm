@@ -5,7 +5,32 @@ module Spa exposing
     , Builder, Model, Msg, SetupError
     )
 
-{-|
+{-| A typical SPA application is defined in a few simple steps:
+
+  - boostrap the application with [init](#init) or [initNoShared](#initNoShared)
+
+  - add pages with [addPublicPage](#addPublicPage) and [addProtectedPage](#addProtectedPage)
+
+  - finalize the application with [application](#application) (with possible the help of [mapSharedMsg](#mapSharedMsg)
+
+        main =
+            Spa.init
+                { defaultView = View.defaultView
+                , extractIdentity = Shared.identity
+                }
+                |> Spa.addPublicPage mappers Route.matchHome Home.page
+                |> Spa.addPublicPage mappers Route.matchSignIn SignIn.page
+                |> Spa.addProtectedPage mappers Route.matchCounter Counter.page
+                |> Spa.addPublicPage mappers Route.matchTime Time.page
+                |> Spa.application View.map
+                    { toRoute = Route.toRoute
+                    , init = Shared.init
+                    , update = Shared.update
+                    , subscriptions = Shared.subscriptions
+                    , toDocument = toDocument
+                    , protectPage = Route.toUrl >> Just >> Route.SignIn >> Route.toUrl
+                    }
+                |> Browser.application
 
 
 # Create the application
@@ -40,7 +65,7 @@ import Spa.PageStack as PageStack
 import Url exposing (Url)
 
 
-{-| The SPA Msg type
+{-| The Application Msg type
 -}
 type Msg sharedMsg pageMsg
     = SharedMsg sharedMsg
@@ -49,7 +74,8 @@ type Msg sharedMsg pageMsg
     | UrlChange Url
 
 
-{-| maps a sharedMsg into a Msg. Usefull in the 'toDocument' function.
+{-| maps a sharedMsg into a Msg. Useful in the 'toDocument' function, to add
+global actions that trigger shared messages
 -}
 mapSharedMsg : sharedMsg -> Msg sharedMsg pageMsg
 mapSharedMsg =
@@ -62,7 +88,7 @@ type SetupError
     = ProtectedPageError
 
 
-{-| The SPA Model type
+{-| The Application Model
 -}
 type alias Model route shared current previous =
     { key : Nav.Key
@@ -88,14 +114,16 @@ type alias Builder route identity shared sharedMsg view current previous current
 {-| Bootstrap a Spa application
 
     Spa.init
-        { init = Shared.init
-        , subscriptions = Shared.subscriptions
-        , update = Shared.update
-        , defaultView = View.defaultView
-        , toRoute = Route.toRoute
+        { defaultView = View.defaultView
         , extractIdentity = Shared.identity
-        , protectPage = Route.toUrl >> Just >> Route.SignIn >> Route.toUrl
         }
+
+  - `defaultView` is the default view that will be used when no other page could
+    be viewed, which should be _never_ once your app is properly setup (more on
+    that a little further).
+
+  - `extractIdentity` is a function that returns a `Maybe identity` from a
+    `Shared` record. The actual `identity` type can be anything you want.
 
 -}
 init :
@@ -123,6 +151,44 @@ initNoShared { defaultView } =
 
 
 {-| Add a public page to the application
+
+    |> Spa.addPublicPage (View.map, View.map) matchHome Pages.Home.page
+
+  - `mappers` is a Tuple of view mappers. For example, if the application view is
+    a `Html msg`, the mappers will be: `( Html.map, Html.map )`. The duplication
+    is for technical reasons (see the `addPage` function implementation).
+
+  - `match` is a function that takes a route and returns the page flags if and
+    only if the route matches the page. This is the place were information can
+    be extracted from the route to be given to the page `init` function.
+
+    A simple match function can be:
+
+        matchHome : Route -> Maybe ()
+        matchHome route =
+            case route of
+                Home ->
+                    Just ()
+
+                _ ->
+                    Nothing
+
+    A match function that extract information:
+
+        matchSignIn : Route -> Maybe (Maybe String)
+        matchSignIn route =
+            case route of
+                SignIn redirect ->
+                    Just redirect
+
+                _ ->
+                    Nothing
+
+  - `page` is a page constructor. A public page constructor is a function that
+    takes the shared state:
+
+        page : shared -> Page
+
 -}
 addPublicPage :
     ( PageStack.CurrentViewMap route currentPageMsg previousStackMsg pageView view
@@ -137,6 +203,14 @@ addPublicPage mappers matchRoute page =
 
 
 {-| Add a protected page to the application
+
+    |> Spa.addProtectedPage (View.map, View.map) matchProfile Pages.Profile.page
+
+The parameters are the same as addPublicPage, except that the page constructor
+takes the current identity in addition to the shared state:
+
+    page : shared -> identity -> Page
+
 -}
 addProtectedPage :
     ( PageStack.CurrentViewMap route currentPageMsg previousStackMsg pageView view
@@ -182,11 +256,26 @@ addPage mappers matchRoute page builder =
 
 {-| Finalize the Spa application into a record suitable for the `Browser.application`
 
-`toDocument` is a function that convert a view to a `Browser.Document`
-
     appWithPages
-        |> Spa.application { toDocument = View.toDocument }
+        |> Spa.application View.map
+            { toRoute = Route.toRoute
+            , protectPage = Route.toUrl >> Just >> Route.SignIn >> Route.toUrl
+            , init = Shared.init
+            , update = Shared.update
+            , subscriptions = Shared.subscriptions
+            , toDocument = toDocument
+            }
         |> Browser.application
+
+It takes a view mapper, then:
+
+  - `toRoute` changes a Url.Url into a (custom) route
+  - `protectPage` produces a redirection url when a protected route is accessed
+    without being identified
+  - `init` is the init function of the shared module
+  - `update` is the update function of the shared module
+  - `subscriptions` is the subscriptions function of the shared module
+  - `toDocument` is a function that convert a view to a `Browser.Document`
 
 -}
 application :

@@ -4,7 +4,16 @@ module Spa.PageStack exposing
     , PageSetup, RouteMatcher, CurrentViewMap, PreviousViewMap
     )
 
-{-|
+{-| This module provides the tools to combine multiple pages into a single TEA
+component.
+
+It can be used separately from Spa, in case it doesn't handle the complexity of
+your application (and if it's the case I am interested to know about it!).
+
+Another use case is to progressively port a hand-writter application to Spa, by
+embedding a PageStack in the existing application, then port pages to it one by
+one. Once all the pages are in the stack, the main application can be ported to
+Spa.
 
 @docs Stack, setup, add
 
@@ -148,7 +157,7 @@ type alias PreviousViewMap route currentMsg previousMsg previousView view =
     (previousMsg -> Msg route currentMsg previousMsg) -> previousView -> view
 
 
-{-| Add a page on a Stack
+{-| Add a page to a Stack
 -}
 add :
     ( CurrentViewMap route currentMsg previousMsg pageView view

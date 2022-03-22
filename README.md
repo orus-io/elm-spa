@@ -49,52 +49,26 @@ then add pages to it, and finally build a record suitable for `Browser.applicati
 ```elm
 main =
     Spa.init
-        { init = Shared.init
-        , subscriptions = Shared.subscriptions
-        , update = Shared.update
-        , defaultView = View.defaultView
-        , toRoute = Route.toRoute
+        { defaultView = View.defaultView
         , extractIdentity = Shared.identity
-        , protectPage = Route.toUrl >> Just >> Route.SignIn >> Route.toUrl
         }
         |> Spa.addPublicPage mappers Route.matchHome Home.page
         |> Spa.addPublicPage mappers Route.matchSignIn SignIn.page
         |> Spa.addProtectedPage mappers Route.matchCounter Counter.page
         |> Spa.addPublicPage mappers Route.matchTime Time.page
-        |> Spa.application { toDocument = toDocument }
+        |> Spa.application View.map
+            { toRoute = Route.toRoute
+            , init = Shared.init
+            , update = Shared.update
+            , subscriptions = Shared.subscriptions
+            , toDocument = toDocument
+            , protectPage = Route.toUrl >> Just >> Route.SignIn >> Route.toUrl
+            }
         |> Browser.application
 ```
 
 In the following sections we describe the different steps of this pipeline by
 explaining the concepts.
-
-### Shared state
-
-The whole application will share a single TEA component that we generally call
-`Shared`. It can be anything you want, as long as you provide `init`, and
-`update` and `subscriptions` functions.
-
-So, given a simple `Shared` module exposing the shared model and its
-init/update/subscriptions functions, this is how you plug your shared state
-in the application:
-
-```elm
-main =
-    Spa.init
-        { init = Shared.init
-        , subscriptions = Shared.subscriptions
-        , update = Shared.update
-        , defaultView = View.defaultView
-        -- ...
-        }
-```
-
-If your application doesn't need a shared state, Elm-Spa provides an alternative
-constructor that will produce a no-op shared state for you (`Spa.noSharedInit`).
-
-The `defaultView` property is the default view that will be used when no other
-page could be viewed, which should be _never_ once your app is properly setup
-(more on that a little further).
 
 ### Routing
 
@@ -109,17 +83,51 @@ into your own custom `Route` type.
 
 ```elm
 main =
-    Spa.init
-        { -- ...
-        , toRoute = Route.toRoute
-        -- ...
-        }
+    -- ...
+        |> Spa.application View.map
+            { toRoute = Route.toRoute
+            -- ...
+            }
 ```
 
 Because it doesn't generate any code, Orus Elm-Spa is not able to do a
 `case ... of` on the route, so you will need to provide a match function for
 each page, more on that a bit further but don't worry: it is dead easy and
 even provides a nice way to pass arguments of the route to your page.
+
+### Shared state
+
+The whole application will share a single TEA component that we generally call
+`Shared`. It can be anything you want, as long as you provide `init`, and
+`update` and `subscriptions` functions.
+
+So, given a simple `Shared` module exposing the shared model and its
+init/update/subscriptions functions, this is how you plug your shared state
+in the application:
+
+```elm
+main =
+    Spa.init
+        { defaultView = View.defaultView
+        -- ...
+        }
+        -- |> Spa.addXxxxPage
+        |> Spa.application View.map
+            { -- ...
+            , init = Shared.init
+            , update = Shared.update
+            , subscriptions = Shared.subscriptions
+            -- ...
+            }
+```
+
+If your application doesn't need a shared state, Elm-Spa provides an alternative
+constructor that will produce a no-op shared state for you (`Spa.noSharedInit`).
+
+The `defaultView` property is the default view that will be used when no other
+page could be viewed, which should be _never_ once your app is properly setup
+(more on that a little further).
+
 
 ### Identity management
 
@@ -144,8 +152,12 @@ main =
     Spa.init
         { -- ...
         , extractIdentity = Shared.identity
-        , protectPage = Route.toUrl >> Just >> Route.SignIn >> Route.toUrl
         }
+        -- |> Spa.addXxxxPage
+        |> Spa.application View.map
+            { -- ...
+            , protectPage = Route.toUrl >> Just >> Route.SignIn >> Route.toUrl
+            }
 ```
 
 ### Pages
@@ -278,6 +290,41 @@ page shared =
         }
 ```
 
+#### Page extra properties
+
+##### Page onNewFlags
+
+When a route change actually points to the same page as before, but with
+different flags, the default behavior is to call the page 'init' function.
+
+In some case it is sub-optimal. For example a page may use the query parameters
+to store the current query: changing it should not reload the page completely.
+
+For such situations, the page can be sent a custom message that will inform it
+that the flags have changed.
+
+```
+
+type Flags
+    = String  -- or anything the route can produce
+
+
+type Msg
+    = Noop
+    | OnNewFlags Flags
+    -- | ...
+
+
+page shared =
+    Spa.Page.element
+        { init = init
+        , update = update
+        , view = view
+        , subscriptions = subscriptions
+        }
+        |> Spa.Page.onNewFlags OnNewFlags
+```
+
 #### View
 
 Each page returns a 'View msg', which can be anything you want as long as you
@@ -287,19 +334,25 @@ a function to convert the View into a Document msg.
 A typical view type based on elm-ui can be:
 
 ```elm
+{-| The application custom view type
+-}
 type alias View msg =
     { title : String
     , body : Element msg
     }
 
--- we must have a map function for it
+
+{-| we must have a map function for it
+-}
 map : (msg -> msg1) -> View msg -> View msg1
 map tomsg view =
     { title = view.title
     , body = Element.map tomsg view.body
     }
 
--- change the view into a Document
+
+{-| change the view into a Document
+-}
 toDocument : Shared -> View msg -> Document msg
 toDocument _ view =
     { title = view.title
@@ -315,11 +368,20 @@ Once all the pages are added to the application, we can change it into a record
 suitable for the `Browser.application` function.
 
 This operation is done by the `Spa.application` function, that takes the
-`toDocument` function:
+parameters we described earlier, along with the `toDocument` function.
+
+The first parameter is the view mapper (again).
 
 ```elm
 -- ...
-        |> Spa.application { toDocument = toDocument }
+        |> Spa.application View.map
+            { toRoute = Route.toRoute
+            , protectPage = Route.toUrl >> Just >> Route.SignIn >> Route.toUrl
+            , init = Shared.init
+            , update = Shared.update
+            , subscriptions = Shared.subscriptions
+            , toDocument = toDocument
+            }
         |> Browser.application
 ```
 

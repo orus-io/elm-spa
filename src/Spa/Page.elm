@@ -14,7 +14,19 @@ import Effect exposing (Effect)
 import Internal
 
 
-{-| A Page is a TEA component
+{-| A page is a small TEA app on its own.
+
+It has the typical `Msg`, `Model`, `init`, `update`, `subscriptions` and `view`.
+It differs from a normal application in a few ways:
+
+  - The `init` and `update` functions return `Effect Shared.Msg Msg` instead of
+    `Cmd Msg`.
+
+  - The `init` function takes a unique `flags` argument that is the output of the
+    page `match` function (see [Spa.addPublicPage](Spa#addPublicPage)).
+
+  - The `view` function returns a `View Msg`, which can be whatever you define.
+
 -}
 type alias Page flags sharedMsg view model msg =
     Internal.Page flags sharedMsg view model msg
