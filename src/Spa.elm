@@ -347,10 +347,43 @@ application viewMap app builder =
                     let
                         ( newShared, sharedCmd ) =
                             app.update sharedMsg model.shared
+
+                        identityChanged =
+                            builder.extractIdentity newShared
+                                /= builder.extractIdentity model.shared
                     in
-                    ( { model | shared = newShared }
-                    , Cmd.map SharedMsg sharedCmd
-                    )
+                    if identityChanged then
+                        let
+                            ( page, pageEffect ) =
+                                builder.pageStack.update newShared (PageStack.routeChange model.currentRoute) model.page
+                        in
+                        case PageStack.getError page of
+                            Just _ ->
+                                ( { model
+                                    | shared = newShared
+                                    , page = page
+                                  }
+                                , Cmd.batch
+                                    [ Cmd.map SharedMsg sharedCmd
+                                    , Nav.replaceUrl model.key <| app.protectPage model.currentRoute
+                                    ]
+                                )
+
+                            Nothing ->
+                                ( { model
+                                    | shared = newShared
+                                    , page = page
+                                  }
+                                , Cmd.batch
+                                    [ Cmd.map SharedMsg sharedCmd
+                                    , Effect.toCmd ( SharedMsg, PageMsg ) pageEffect
+                                    ]
+                                )
+
+                    else
+                        ( { model | shared = newShared }
+                        , Cmd.map SharedMsg sharedCmd
+                        )
 
                 PageMsg pageMsg ->
                     let
@@ -382,12 +415,22 @@ application viewMap app builder =
                         ( page, pageEffect ) =
                             builder.pageStack.update model.shared (PageStack.routeChange route) model.page
                     in
-                    ( { model
-                        | currentRoute = route
-                        , page = page
-                      }
-                    , Effect.toCmd ( SharedMsg, PageMsg ) pageEffect
-                    )
+                    case PageStack.getError page of
+                        Just _ ->
+                            ( { model
+                                | currentRoute = route
+                                , page = page
+                              }
+                            , Nav.replaceUrl model.key <| app.protectPage route
+                            )
+
+                        Nothing ->
+                            ( { model
+                                | currentRoute = route
+                                , page = page
+                              }
+                            , Effect.toCmd ( SharedMsg, PageMsg ) pageEffect
+                            )
     , subscriptions =
         \model ->
             Sub.batch
