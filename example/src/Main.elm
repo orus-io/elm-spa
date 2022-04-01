@@ -1,7 +1,7 @@
 module Main exposing (..)
 
 import Browser exposing (Document)
-import Element exposing (Element)
+import Element
 import Element.Input as Input
 import Pages.Counter as Counter
 import Pages.Home as Home
