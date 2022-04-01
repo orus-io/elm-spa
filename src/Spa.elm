@@ -1,8 +1,8 @@
 module Spa exposing
     ( init, initNoShared
     , addPublicPage, addProtectedPage
-    , application, mapSharedMsg
-    , Builder, Model, Msg, SetupError
+    , application, mapSharedMsg, onUrlRequest
+    , Builder, Model, Msg, SetupError, Application
     )
 
 {-| A typical SPA application is defined in a few simple steps:
@@ -48,12 +48,12 @@ module Spa exposing
 Once all the pages are added to the application, we can change it into a record
 suitable for the `Browser.application` function.
 
-@docs application, mapSharedMsg
+@docs application, mapSharedMsg, onUrlRequest
 
 
 # Types
 
-@docs Builder, Model, Msg, SetupError
+@docs Builder, Model, Msg, SetupError, Application
 
 -}
 
@@ -254,6 +254,18 @@ addPage mappers matchRoute page builder =
     }
 
 
+{-| The Application type that can be passed to Browser.application
+-}
+type alias Application flags shared sharedMsg route current previous currentMsg previousMsg =
+    { init : flags -> Url -> Nav.Key -> ( Model route shared current previous, Cmd (Msg sharedMsg (PageStack.Msg route currentMsg previousMsg)) )
+    , view : Model route shared current previous -> Document (Msg sharedMsg (PageStack.Msg route currentMsg previousMsg))
+    , update : Msg sharedMsg (PageStack.Msg route currentMsg previousMsg) -> Model route shared current previous -> ( Model route shared current previous, Cmd (Msg sharedMsg (PageStack.Msg route currentMsg previousMsg)) )
+    , subscriptions : Model route shared current previous -> Sub (Msg sharedMsg (PageStack.Msg route currentMsg previousMsg))
+    , onUrlRequest : UrlRequest -> Msg sharedMsg (PageStack.Msg route currentMsg previousMsg)
+    , onUrlChange : Url -> Msg sharedMsg (PageStack.Msg route currentMsg previousMsg)
+    }
+
+
 {-| Finalize the Spa application into a record suitable for the `Browser.application`
 
     appWithPages
@@ -279,27 +291,20 @@ It takes a view mapper, then:
 
 -}
 application :
-    ((PageStack.Msg route stackCurrentMsg stackPreviousMsg -> Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg)) -> pageView -> view)
+    ((PageStack.Msg route currentMsg previousMsg -> Msg sharedMsg (PageStack.Msg route currentMsg previousMsg)) -> pageView -> view)
     ->
         { toRoute : Url -> route
         , init : flags -> Nav.Key -> ( shared, Cmd sharedMsg )
         , subscriptions : shared -> Sub sharedMsg
         , update : sharedMsg -> shared -> ( shared, Cmd sharedMsg )
         , protectPage : route -> String
-        , toDocument : shared -> view -> Document (Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg))
+        , toDocument : shared -> view -> Document (Msg sharedMsg (PageStack.Msg route currentMsg previousMsg))
         }
-    -> Builder route identity shared sharedMsg pageView current previous stackCurrentMsg stackPreviousMsg
-    ->
-        { init : flags -> Url -> Nav.Key -> ( Model route shared current previous, Cmd (Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg)) )
-        , view : Model route shared current previous -> Document (Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg))
-        , update : Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg) -> Model route shared current previous -> ( Model route shared current previous, Cmd (Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg)) )
-        , subscriptions : Model route shared current previous -> Sub (Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg))
-        , onUrlRequest : UrlRequest -> Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg)
-        , onUrlChange : Url -> Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg)
-        }
+    -> Builder route identity shared sharedMsg pageView current previous currentMsg previousMsg
+    -> Application flags shared sharedMsg route current previous currentMsg previousMsg
 application viewMap app builder =
     let
-        initPage : route -> Nav.Key -> shared -> ( PageStack.Model SetupError current previous, Cmd (Msg sharedMsg (PageStack.Msg route stackCurrentMsg stackPreviousMsg)) )
+        initPage : route -> Nav.Key -> shared -> ( PageStack.Model SetupError current previous, Cmd (Msg sharedMsg (PageStack.Msg route currentMsg previousMsg)) )
         initPage route key shared =
             let
                 ( page, effect ) =
@@ -348,6 +353,7 @@ application viewMap app builder =
                         ( newShared, sharedCmd ) =
                             app.update sharedMsg model.shared
 
+                        identityChanged : Bool
                         identityChanged =
                             builder.extractIdentity newShared
                                 /= builder.extractIdentity model.shared
@@ -439,4 +445,21 @@ application viewMap app builder =
                 ]
     , onUrlRequest = UrlRequest
     , onUrlChange = UrlChange
+    }
+
+
+{-| Set a custom message for handling the onUrlRequest event of the
+Browser application.
+
+The default handler does what most people expects (Nav.push internal
+urls, and Nav.load external urls).
+
+-}
+onUrlRequest :
+    (UrlRequest -> sharedMsg)
+    -> Application flags shared sharedMsg route current previous currentMsg previousMsg
+    -> Application flags shared sharedMsg route current previous currentMsg previousMsg
+onUrlRequest toSharedMsg app =
+    { app
+        | onUrlRequest = toSharedMsg >> SharedMsg
     }
