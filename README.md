@@ -385,6 +385,23 @@ The first parameter is the view mapper (again).
         |> Browser.application
 ```
 
+## Migrating an existing application
+
+When porting an application to orus-io/elm-spa, the general plan is:
+
+- add a standalone [PageStack](https://package.elm-lang.org/packages/orus-io/elm-spa/2.0.0/Spa-PageStack) in the root component of the application
+- move the pages to the stack, one by one
+- replace the root component with Spa.application
+
+The details will vary depending on how the program is architecture, but
+if it follows the principles of
+[rtfeldman/elm-spa-example](https://github.com/rtfeldman/elm-spa-example/)
+it should go smoothly.
+
+To make thinks easier for everyone, we demonstrate the incremental
+migration of elm-spa-example in this
+[pull request](https://github.com/rtfeldman/elm-spa-example/pull/106).
+
 
 ## Acknowlegments
 
