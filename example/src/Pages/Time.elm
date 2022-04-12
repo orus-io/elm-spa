@@ -85,6 +85,6 @@ view model =
 
                 Nothing ->
                     text "..."
-            , a [ href "/" ] [ text "Go home" ]
+            , div [] [ a [ href "/" ] [ text "Go home" ] ]
             ]
     }

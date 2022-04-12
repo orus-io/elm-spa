@@ -58,12 +58,12 @@ view model =
                 , button (onClick (Login "Marie") :: buttonClass) [ text "I am Marie" ]
                 , button (onClick (Login "René") :: buttonClass) [ text "I am René" ]
                 ]
-            , text <| "you will be redirected to " ++ Maybe.withDefault "/" model.redirect ++ " after login"
-            , a [ href "/" ] [ text "Go home" ]
+            , div [] [ text <| "you will be redirected to " ++ Maybe.withDefault "/" model.redirect ++ " after login" ]
+            , div [] [ a [ href "/" ] [ text "Go home" ] ]
             ]
     }
 
 
 buttonClass : List (Attribute msg)
 buttonClass =
-    [ style "border" "1px solid black", style "padding" "20px 10px" ]
+    [ style "border" "1px solid black", style "padding" "20px 10px", style "margin" "20px", style "font-size" "20px" ]

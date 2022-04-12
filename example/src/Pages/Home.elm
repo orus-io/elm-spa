@@ -1,7 +1,7 @@
 module Pages.Home exposing (..)
 
 import Html exposing (a, div, text)
-import Html.Attributes exposing (href)
+import Html.Attributes exposing (href, style)
 import Shared exposing (Shared)
 import Spa.Page
 import View exposing (View)
@@ -22,7 +22,7 @@ view shared =
 
                 Nothing ->
                     text "Welcome Home!"
-            , a [ href "/counter" ] [ text "See counter" ]
-            , a [ href "/time" ] [ text "See time" ]
+            , div [] [ a [ href "/counter" ] [ text "See counter" ] ]
+            , div [] [ a [ href "/time" ] [ text "See time" ] ]
             ]
     }

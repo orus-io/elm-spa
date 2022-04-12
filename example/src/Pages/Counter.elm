@@ -64,7 +64,7 @@ myButton : String -> Msg -> Html Msg
 myButton label msg =
     button
         [ onClick msg
-        , style "background-color" "rgb(238,238,238)"
+        , style "margin" "10px"
         ]
         [ text label ]
 
@@ -81,8 +81,8 @@ counterElements model =
                 , text <| String.fromInt model.amount
                 , myButton "Decrement" Decrement
                 ]
-            , a [ href "?value=0" ] [ text "Reset" ]
-            , a [ href "/" ] [ text "Go Home" ]
+            , div [] [ a [ href "?value=0" ] [ text "Reset" ] ]
+            , div [] [ a [ href "/" ] [ text "Go Home" ] ]
             ]
                 ++ (if model.directSetValue then
                         [ text "Just avoided a 'init' call" ]
