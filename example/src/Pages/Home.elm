@@ -1,7 +1,7 @@
 module Pages.Home exposing (..)
 
-import Element exposing (Element)
-import Html
+import Html exposing (a, div, text)
+import Html.Attributes exposing (href)
 import Shared exposing (Shared)
 import Spa.Page
 import View exposing (View)
@@ -15,20 +15,14 @@ view : Shared -> View ()
 view shared =
     { title = "Home"
     , body =
-        Element.column []
+        div []
             [ case Shared.identity shared of
                 Just identity ->
-                    Element.text <| "Welcome Home " ++ identity ++ "!"
+                    text <| "Welcome Home " ++ identity ++ "!"
 
                 Nothing ->
-                    Element.text "Welcome Home!"
-            , Element.link []
-                { label = Element.text "See counter"
-                , url = "/counter"
-                }
-            , Element.link []
-                { label = Element.text "See time"
-                , url = "/time"
-                }
+                    text "Welcome Home!"
+            , a [ href "/counter" ] [ text "See counter" ]
+            , a [ href "/time" ] [ text "See time" ]
             ]
     }

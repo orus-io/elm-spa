@@ -1,8 +1,9 @@
 module Main exposing (..)
 
 import Browser exposing (Document)
-import Element
-import Element.Input as Input
+import Html exposing (a, button, div, text)
+import Html.Attributes exposing (href, style)
+import Html.Events exposing (onClick)
 import Pages.Counter as Counter
 import Pages.Home as Home
 import Pages.SignIn as SignIn
@@ -25,38 +26,30 @@ toDocument :
 toDocument shared view =
     { title = view.title
     , body =
-        [ Element.layout
+        [ div
             []
-          <|
-            Element.column
-                [ Element.width Element.fill
-                , Element.height Element.fill
+            [ div
+                [ style "width" "100%"
+                , style "height" "100%"
                 ]
-                [ Element.row
-                    [ Element.alignRight
-                    , Element.padding 20
-                    , Element.spacing 20
+                [ div
+                    [ style "text-align" "right"
+                    , style "padding" "20px"
                     ]
                   <|
                     case shared.identity of
                         Just username ->
-                            [ Element.text username
-                            , Input.button []
-                                { label = Element.text "logout"
-                                , onPress = Just (Spa.mapSharedMsg Shared.ResetIdentity)
-                                }
+                            [ text username
+                            , button [ onClick (Spa.mapSharedMsg Shared.ResetIdentity) ] [ text "logout" ]
                             ]
 
                         Nothing ->
-                            [ Element.link []
-                                { label = Element.text "Sign-in"
-                                , url = "/sign-in"
-                                }
-                            ]
-                , Element.el
-                    [ Element.centerX, Element.centerY ]
-                    view.body
+                            [ a [ href "/sign-in" ] [ text "Sign-in" ] ]
+                , div
+                    []
+                    [ view.body ]
                 ]
+            ]
         ]
     }
 

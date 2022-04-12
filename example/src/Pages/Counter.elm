@@ -1,10 +1,9 @@
 module Pages.Counter exposing (page)
 
-import Browser.Navigation exposing (replaceUrl)
 import Effect exposing (Effect)
-import Element exposing (Element)
-import Element.Background as Background
-import Element.Input as Input
+import Html exposing (Html, a, button, div, text)
+import Html.Attributes exposing (href, style)
+import Html.Events exposing (onClick)
 import Route
 import Shared
 import Spa.Page
@@ -61,45 +60,32 @@ update msg model =
                 model |> Effect.withNone
 
 
-btnColor : Element.Color
-btnColor =
-    Element.rgb255 238 238 238
-
-
-myButton : String -> Msg -> Element Msg
+myButton : String -> Msg -> Html Msg
 myButton label msg =
-    Input.button
-        [ Background.color btnColor
+    button
+        [ onClick msg
+        , style "background-color" "rgb(238,238,238)"
         ]
-        { onPress = Just msg
-        , label = Element.text label
-        }
+        [ text label ]
 
 
 counterElements : Model -> View Msg
 counterElements model =
     { title = "Counter"
     , body =
-        Element.column [] <|
-            [ Element.row
-                [ Element.spacing 30
-                , Element.padding 10
+        div [] <|
+            [ div
+                [ style "padding" "10px"
                 ]
                 [ myButton "Increment" Increment
-                , Element.text <| String.fromInt model.amount
+                , text <| String.fromInt model.amount
                 , myButton "Decrement" Decrement
                 ]
-            , Element.link []
-                { label = Element.text "Reset"
-                , url = "?value=0"
-                }
-            , Element.link []
-                { label = Element.text "Go Home"
-                , url = "/"
-                }
+            , a [ href "?value=0" ] [ text "Reset" ]
+            , a [ href "/" ] [ text "Go Home" ]
             ]
                 ++ (if model.directSetValue then
-                        [ Element.text "Just avoided a 'init' call" ]
+                        [ text "Just avoided a 'init' call" ]
 
                     else
                         []

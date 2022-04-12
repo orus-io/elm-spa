@@ -1,7 +1,8 @@
 module Pages.Time exposing (..)
 
 import Effect exposing (Effect)
-import Element exposing (Element)
+import Html exposing (a, div, text)
+import Html.Attributes exposing (href)
 import Spa.Page
 import Task
 import Time exposing (Posix, Zone)
@@ -66,7 +67,7 @@ view : Model -> View Msg
 view model =
     { title = "What time is it?"
     , body =
-        Element.column []
+        div []
             [ case model of
                 Just { time, here } ->
                     (Time.toHour here time
@@ -80,13 +81,10 @@ view model =
                         ++ (Time.toSecond here time
                                 |> String.fromInt
                            )
-                        |> Element.text
+                        |> text
 
                 Nothing ->
-                    Element.text "..."
-            , Element.link []
-                { label = Element.text "Go home"
-                , url = "/"
-                }
+                    text "..."
+            , a [ href "/" ] [ text "Go home" ]
             ]
     }
