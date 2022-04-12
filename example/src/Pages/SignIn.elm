@@ -1,9 +1,9 @@
 module Pages.SignIn exposing (..)
 
 import Effect exposing (Effect)
-import Element exposing (Element)
-import Element.Border as Border
-import Element.Input as Input
+import Html exposing (Attribute, a, button, div, text)
+import Html.Attributes exposing (href, style)
+import Html.Events exposing (onClick)
 import Shared
 import Spa.Page
 import View exposing (View)
@@ -50,30 +50,20 @@ view : Model -> View Msg
 view model =
     { title = "SignIn"
     , body =
-        Element.column [ Element.spacing 20 ]
-            [ Element.text "Choose who you are:"
-            , Element.row [ Element.spacing 20 ]
-                [ Input.button [ Border.width 1, Element.paddingXY 20 10 ]
-                    { label = Element.text "I am Jeannine"
-                    , onPress = Just (Login "Jeannine")
-                    }
-                , Input.button [ Border.width 1, Element.paddingXY 20 10 ]
-                    { label = Element.text "I am Bernard"
-                    , onPress = Just (Login "Bernard")
-                    }
-                , Input.button [ Border.width 1, Element.paddingXY 20 10 ]
-                    { label = Element.text "I am Marie"
-                    , onPress = Just (Login "Marie")
-                    }
-                , Input.button [ Border.width 1, Element.paddingXY 20 10 ]
-                    { label = Element.text "I am René"
-                    , onPress = Just (Login "René")
-                    }
+        div []
+            [ text "Choose who you are:"
+            , div []
+                [ button (onClick (Login "Jeannine") :: buttonClass) [ text "I am Jeannine" ]
+                , button (onClick (Login "Bernard") :: buttonClass) [ text "I am Bernard" ]
+                , button (onClick (Login "Marie") :: buttonClass) [ text "I am Marie" ]
+                , button (onClick (Login "René") :: buttonClass) [ text "I am René" ]
                 ]
-            , Element.text <| "you will be redirected to " ++ Maybe.withDefault "/" model.redirect ++ " after login"
-            , Element.link []
-                { label = Element.text "Go home"
-                , url = "/"
-                }
+            , text <| "you will be redirected to " ++ Maybe.withDefault "/" model.redirect ++ " after login"
+            , a [ href "/" ] [ text "Go home" ]
             ]
     }
+
+
+buttonClass : List (Attribute msg)
+buttonClass =
+    [ style "border" "1px solid black", style "padding" "20px 10px" ]
