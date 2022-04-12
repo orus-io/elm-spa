@@ -27,7 +27,7 @@ toDocument shared view =
     { title = view.title
     , body =
         [ div
-            []
+            [ style "font-size" "20px" ]
             [ div
                 [ style "width" "100%"
                 , style "height" "100%"
@@ -40,13 +40,18 @@ toDocument shared view =
                     case shared.identity of
                         Just username ->
                             [ text username
+                            , text " | "
                             , button [ onClick (Spa.mapSharedMsg Shared.ResetIdentity) ] [ text "logout" ]
                             ]
 
                         Nothing ->
                             [ a [ href "/sign-in" ] [ text "Sign-in" ] ]
                 , div
-                    []
+                    [ style "padding-top" "10rem"
+                    , style "display" "flex"
+                    , style "align-items" "center"
+                    , style "justify-content" "center"
+                    ]
                     [ view.body ]
                 ]
             ]
