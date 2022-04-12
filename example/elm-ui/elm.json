@@ -1,8 +1,7 @@
 {
     "type": "application",
     "source-directories": [
-        "src",
-        "../src"
+        "src"
     ],
     "elm-version": "0.19.1",
     "dependencies": {
@@ -12,7 +11,8 @@
             "elm/html": "1.0.0",
             "elm/time": "1.0.0",
             "elm/url": "1.0.0",
-            "mdgriffith/elm-ui": "1.1.8"
+            "mdgriffith/elm-ui": "1.1.8",
+            "orus-io/elm-spa": "2.0.0"
         },
         "indirect": {
             "elm/json": "1.1.3",
