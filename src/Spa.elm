@@ -11,7 +11,7 @@ module Spa exposing
 
   - add pages with [addPublicPage](#addPublicPage) and [addProtectedPage](#addProtectedPage)
 
-  - finalize the application with [application](#application) (with possible the help of [mapSharedMsg](#mapSharedMsg)
+  - finalize the application with [application](#application) (with the possible help of [mapSharedMsg](#mapSharedMsg)
 
         main =
             Spa.init
@@ -118,7 +118,7 @@ type alias Builder route identity shared sharedMsg view current previous current
         , extractIdentity = Shared.identity
         }
 
-  - `defaultView` is the default view that will be used when no other page could
+  - `defaultView` is the default view that will be used when no other pages could
     be viewed, which should be _never_ once your app is properly setup (more on
     that a little further).
 
@@ -159,7 +159,7 @@ initNoShared { defaultView } =
     is for technical reasons (see the `addPage` function implementation).
 
   - `match` is a function that takes a route and returns the page flags if and
-    only if the route matches the page. This is the place were information can
+    only if the route matches the page. This is the place where data can
     be extracted from the route to be given to the page `init` function.
 
     A simple match function can be:
@@ -173,7 +173,7 @@ initNoShared { defaultView } =
                 _ ->
                     Nothing
 
-    A match function that extract information:
+    A match function that extracts data from the route:
 
         matchSignIn : Route -> Maybe (Maybe String)
         matchSignIn route =
@@ -451,7 +451,7 @@ application viewMap app builder =
 {-| Set a custom message for handling the onUrlRequest event of the
 Browser application.
 
-The default handler does what most people expects (Nav.push internal
+The default handler does what most people expect (Nav.push internal
 urls, and Nav.load external urls).
 
 -}

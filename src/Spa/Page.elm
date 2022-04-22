@@ -32,7 +32,7 @@ type alias Page flags sharedMsg view model msg =
     Internal.Page flags sharedMsg view model msg
 
 
-{-| Create a static page that has no state, only a view
+{-| Create a static page that has no states, only a view
 -}
 static : view -> Page flags sharedMsg view () ()
 static pageView =
@@ -89,7 +89,7 @@ element { init, update, view, subscriptions } =
 
 
 {-| Set the message to pass when the flags changed. If not set, the 'init'
-function is called, resulting in a complete reinitialisation of the page model.
+function is called, resulting in a complete reset of the page model.
 -}
 onNewFlags :
     (flags -> msg)
