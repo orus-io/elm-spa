@@ -1,17 +1,17 @@
-module Pages.Counter exposing (page)
+module Pages.Counter exposing (Model, Msg, page)
 
-import Browser.Navigation exposing (replaceUrl)
 import Effect exposing (Effect)
 import Element exposing (Element)
 import Element.Background as Background
 import Element.Input as Input
 import Route
-import Shared
+import Shared exposing (Identity, Shared)
 import Spa.Page
 import View exposing (View)
 
 
-page _ identity =
+page : Shared -> Identity -> Spa.Page.Page Int Shared.Msg (View Msg) Model Msg
+page shared identity =
     Spa.Page.element
         { init = init
         , update = update

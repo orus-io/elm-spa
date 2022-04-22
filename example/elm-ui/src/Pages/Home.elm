@@ -1,12 +1,12 @@
-module Pages.Home exposing (..)
+module Pages.Home exposing (page)
 
-import Element exposing (Element)
-import Html
+import Element
 import Shared exposing (Shared)
 import Spa.Page
 import View exposing (View)
 
 
+page : Shared -> Spa.Page.Page () Shared.Msg (View ()) () ()
 page shared =
     Spa.Page.static (view shared)
 

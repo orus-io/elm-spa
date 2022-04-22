@@ -1,23 +1,38 @@
-module Shared exposing (..)
+module Shared exposing
+    ( Identity
+    , Msg(..)
+    , Shared
+    , identity
+    , init
+    , pushRoute
+    , replaceRoute
+    , setIdentity
+    , subscriptions
+    , update
+    )
 
 import Browser.Navigation as Nav
 import Route exposing (Route)
 
 
+type alias Identity =
+    String
+
+
 type alias Shared =
     { key : Nav.Key
-    , identity : Maybe String
+    , identity : Maybe Identity
     }
 
 
 type Msg
-    = SetIdentity String (Maybe String)
+    = SetIdentity Identity (Maybe String)
     | ResetIdentity
     | PushRoute Route
     | ReplaceRoute Route
 
 
-identity : Shared -> Maybe String
+identity : Shared -> Maybe Identity
 identity =
     .identity
 

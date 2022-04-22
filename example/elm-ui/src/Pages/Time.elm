@@ -1,14 +1,16 @@
-module Pages.Time exposing (..)
+module Pages.Time exposing (Model, Msg(..), page)
 
 import Effect exposing (Effect)
-import Element exposing (Element)
+import Element
+import Shared exposing (Shared)
 import Spa.Page
 import Task
 import Time exposing (Posix, Zone)
 import View exposing (View)
 
 
-page _ =
+page : Shared -> Spa.Page.Page () Shared.Msg (View Msg) Model Msg
+page shared =
     Spa.Page.element
         { init = always init
         , update = update

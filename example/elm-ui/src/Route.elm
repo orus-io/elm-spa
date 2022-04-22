@@ -1,8 +1,8 @@
-module Route exposing (..)
+module Route exposing (Route(..), matchCounter, matchHome, matchSignIn, matchTime, toRoute, toUrl)
 
 import Url exposing (Url)
 import Url.Builder as Builder
-import Url.Parser as Parser exposing (..)
+import Url.Parser exposing ((<?>), Parser, map, oneOf, parse, s, top)
 import Url.Parser.Query as Query
 
 

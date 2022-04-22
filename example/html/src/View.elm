@@ -1,4 +1,4 @@
-module View exposing (..)
+module View exposing (View, defaultView, map)
 
 import Html exposing (Html)
 

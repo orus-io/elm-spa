@@ -1,15 +1,16 @@
-module Pages.SignIn exposing (..)
+module Pages.SignIn exposing (Model, Msg(..), page)
 
 import Effect exposing (Effect)
-import Element exposing (Element)
+import Element
 import Element.Border as Border
 import Element.Input as Input
-import Shared
+import Shared exposing (Shared)
 import Spa.Page
 import View exposing (View)
 
 
-page _ =
+page : Shared -> Spa.Page.Page (Maybe String) Shared.Msg (View Msg) Model Msg
+page shared =
     Spa.Page.element
         { init = init
         , update = update
