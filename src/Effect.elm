@@ -5,7 +5,7 @@ module Effect exposing
     , add, addBatch, addCmd, addSharedCmd, addShared, addMap, addPerform, addAttempt
     )
 
-{-| This module provides a [`Effect`](#Effect) type that carry both Cmd and messages for
+{-| This module provides an [`Effect`](#Effect) type that carry both Cmd and messages for
 a shared update
 
 
@@ -49,7 +49,7 @@ type Effect sharedMsg msg
     | Batch (List (Effect sharedMsg msg))
 
 
-{-| Tells that there are no effect
+{-| Tells that there are no effects
 -}
 none : Effect sharedMsg msg
 none =
@@ -79,7 +79,7 @@ fromSharedCmd =
     SharedCmd
 
 
-{-| Build an effect from a shared Msg. The message will be send as-is to the
+{-| Build an effect from a shared Msg. The message will be sent as-is to the
 shared update
 -}
 fromShared : sharedMsg -> Effect sharedMsg msg
@@ -248,14 +248,14 @@ withMap mapper effect model =
     ( model, map mapper effect )
 
 
-{-| Wraps the model with an affect that performs a Task
+{-| Wraps the model with an effect that performs a Task
 -}
 withPerform : (a -> msg) -> Task Never a -> model -> ( model, Effect sharedMsg msg )
 withPerform tomsg task model =
     ( model, perform tomsg task )
 
 
-{-| Wraps the model with an affect that attempts a Task
+{-| Wraps the model with an effect that attempts a Task
 -}
 withAttempt : (Result x a -> msg) -> Task x a -> model -> ( model, Effect sharedMsg msg )
 withAttempt tomsg task model =
@@ -314,21 +314,21 @@ addMap mapper effect =
     add (map mapper effect)
 
 
-{-| Add an affect that performs a Task to an existing model-Effect pair
+{-| Add an effect that performs a Task to an existing model-Effect pair
 -}
 addPerform : (a -> msg) -> Task Never a -> ( model, Effect sharedMsg msg ) -> ( model, Effect sharedMsg msg )
 addPerform tomsg task =
     add (perform tomsg task)
 
 
-{-| Add an affect that attempts a Task to an existing model-Effect pair
+{-| Add an effect that attempts a Task to an existing model-Effect pair
 -}
 addAttempt : (Result x a -> msg) -> Task x a -> ( model, Effect sharedMsg msg ) -> ( model, Effect sharedMsg msg )
 addAttempt tomsg task =
     add (attempt tomsg task)
 
 
-{-| Convert a collection of effect to a connection of
+{-| Convert a collection of effects to a connection of
 [`Cmd`](/packages/elm/core/latest/Platform-Cmd#Cmd)
 -}
 toCmd : ( sharedMsg -> msg, subMsg -> msg ) -> Effect sharedMsg subMsg -> Cmd msg
