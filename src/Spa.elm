@@ -118,9 +118,9 @@ type alias Builder route identity shared sharedMsg view current previous current
         , extractIdentity = Shared.identity
         }
 
-  - `defaultView` is the default view that will be used when no other pages could
-    be viewed, which should be _never_ once your app is properly setup (more on
-    that a little further).
+  - `defaultView` is the default view that will be used when no other page can
+    be viewed. This should _never_ happen once your app is properly setup (more
+    on that a little further).
 
   - `extractIdentity` is a function that returns a `Maybe identity` from a
     `Shared` record. The actual `identity` type can be anything you want.

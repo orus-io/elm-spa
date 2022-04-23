@@ -5,7 +5,7 @@ module Effect exposing
     , add, addBatch, addCmd, addSharedCmd, addShared, addMap, addPerform, addAttempt
     )
 
-{-| This module provides an [`Effect`](#Effect) type that carry both Cmd and messages for
+{-| This module provides an [`Effect`](#Effect) type that carries both Cmd and messages for
 a shared update
 
 

@@ -231,7 +231,7 @@ or the `Spa.addProtectedPage` function. It takes 3 arguments:
 
 #### Effect
 
-A [`Effect`](Effect#Effect) works the same as a `Cmd`, but can also carry
+An [`Effect`](Effect#Effect) works the same as a `Cmd`, but can also carry
 messages and commands of the `Shared` module when sent from a `Page`. It is the
 only way for a page to interract with the shared state.
 
