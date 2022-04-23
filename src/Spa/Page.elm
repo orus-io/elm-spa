@@ -88,7 +88,7 @@ element { init, update, view, subscriptions } =
         }
 
 
-{-| Set the message to pass when the flags changed. If not set, the 'init'
+{-| Set the message to pass when the flags change. If not set, the 'init'
 function is called, resulting in a complete reset of the page model.
 -}
 onNewFlags :
