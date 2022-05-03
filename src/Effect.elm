@@ -57,7 +57,7 @@ none =
 
 
 {-| Batch effects. Similar to
-[`Cmd.map`](/packages/elm/core/latest/Platform-Cmd#batch)
+[`Cmd.batch`](/packages/elm/core/latest/Platform-Cmd#batch)
 -}
 batch : List (Effect sharedMsg msg) -> Effect sharedMsg msg
 batch =

@@ -118,7 +118,7 @@ type alias Builder route identity shared sharedMsg view current previous current
         , extractIdentity = Shared.identity
         }
 
-  - `defaultView` is the default view that will be used when no other page can
+  - `defaultView` is the default view that will be used when no other pages can
     be viewed. This should _never_ happen once your app is properly setup (more
     on that a little further).
 
