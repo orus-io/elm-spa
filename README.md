@@ -125,7 +125,7 @@ If your application doesn't need a shared state, Elm-Spa provides an alternative
 constructor that will produce a no-op shared state for you (`Spa.noSharedInit`).
 
 The `defaultView` property is the default view that will be used when no other
-page could be viewed, which should be _never_ once your app is properly setup
+pages could be viewed, which should be _never_ once your app is properly setup
 (more on that a little further).
 
 
