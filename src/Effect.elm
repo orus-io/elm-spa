@@ -3,6 +3,7 @@ module Effect exposing
     , map, toCmd
     , with, withNone, withBatch, withCmd, withSharedCmd, withShared, withMap, withPerform, withAttempt
     , add, addBatch, addCmd, addSharedCmd, addShared, addMap, addPerform, addAttempt
+    , extractShared
     )
 
 {-| This module provides an [`Effect`](#Effect) type that carries both Cmd and messages for
@@ -365,3 +366,19 @@ toCmd ( fromSharedMsg, fromSubMsg ) effect =
 
         multiple ->
             Cmd.batch multiple
+
+
+extractShared : Effect sharedMsg msg -> ( List sharedMsg, Effect sharedMsg msg )
+extractShared =
+    flatten
+        >> List.foldl
+            (\effect ( sharedList, otherList ) ->
+                case effect of
+                    Shared sharedMsg ->
+                        ( sharedMsg :: sharedList, otherList )
+
+                    _ ->
+                        ( sharedList, effect :: otherList )
+            )
+            ( [], [] )
+        >> Tuple.mapSecond batch

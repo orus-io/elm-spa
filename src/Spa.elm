@@ -59,7 +59,7 @@ suitable for the `Browser.application` function.
 
 import Browser exposing (Document, UrlRequest)
 import Browser.Navigation as Nav
-import Effect
+import Effect exposing (Effect)
 import Spa.Page exposing (Page)
 import Spa.PageStack as PageStack
 import Url exposing (Url)
@@ -304,7 +304,7 @@ application :
     -> Application flags shared sharedMsg route current previous currentMsg previousMsg
 application viewMap app builder =
     let
-        initPage : route -> Nav.Key -> shared -> ( PageStack.Model SetupError current previous, Cmd (Msg sharedMsg (PageStack.Msg route currentMsg previousMsg)) )
+        initPage : route -> Nav.Key -> shared -> ( PageStack.Model SetupError current previous, Effect sharedMsg (PageStack.Msg route currentMsg previousMsg) )
         initPage route key shared =
             let
                 ( page, effect ) =
@@ -312,10 +312,77 @@ application viewMap app builder =
             in
             case PageStack.getError page of
                 Just _ ->
-                    ( PageStack.empty, Nav.replaceUrl key <| app.protectPage route )
+                    ( PageStack.empty, Effect.fromCmd <| Nav.replaceUrl key <| app.protectPage route )
 
                 Nothing ->
-                    ( page, Effect.toCmd ( SharedMsg, PageMsg ) effect )
+                    ( page, effect )
+
+        updateShared sharedMsg model =
+            let
+                ( newShared, sharedCmd ) =
+                    app.update sharedMsg model.shared
+
+                identityChanged : Bool
+                identityChanged =
+                    builder.extractIdentity newShared
+                        /= builder.extractIdentity model.shared
+            in
+            if identityChanged then
+                let
+                    ( page, pageEffect ) =
+                        builder.pageStack.update newShared (PageStack.routeChange model.currentRoute) model.page
+                in
+                case PageStack.getError page of
+                    Just _ ->
+                        ( { model
+                            | shared = newShared
+                            , page = page
+                          }
+                        , Cmd.batch
+                            [ Cmd.map SharedMsg sharedCmd
+                            , Nav.replaceUrl model.key <| app.protectPage model.currentRoute
+                            ]
+                        )
+
+                    Nothing ->
+                        ( { model
+                            | shared = newShared
+                            , page = page
+                          }
+                        , Cmd.batch
+                            [ Cmd.map SharedMsg sharedCmd
+                            , Effect.toCmd ( SharedMsg, PageMsg ) pageEffect
+                            ]
+                        )
+
+            else
+                ( { model | shared = newShared }
+                , Cmd.map SharedMsg sharedCmd
+                )
+
+        applyEffect effect model =
+            let
+                ( sharedMsgList, otherEffect ) =
+                    Effect.extractShared effect
+
+                ( newModel, cmd ) =
+                    sharedMsgList
+                        |> List.foldl
+                            (\sharedMsg ( prevModel, prevCmd ) ->
+                                let
+                                    ( nextModel, nextCmd ) =
+                                        updateShared sharedMsg prevModel
+                                in
+                                ( nextModel, nextCmd :: prevCmd )
+                            )
+                            ( model, [] )
+            in
+            ( newModel
+            , Cmd.batch
+                (Effect.toCmd ( SharedMsg, PageMsg ) otherEffect
+                    :: cmd
+                )
+            )
     in
     { init =
         \flags url key ->
@@ -327,19 +394,16 @@ application viewMap app builder =
                 ( shared, sharedCmd ) =
                     app.init flags key
 
-                ( page, pageCmd ) =
+                ( page, pageEffect ) =
                     initPage route key shared
             in
-            ( { key = key
-              , currentRoute = route
-              , shared = shared
-              , page = page
-              }
-            , Cmd.batch
-                [ Cmd.map SharedMsg sharedCmd
-                , pageCmd
-                ]
-            )
+            { key = key
+            , currentRoute = route
+            , shared = shared
+            , page = page
+            }
+                |> applyEffect pageEffect
+                |> addMapCmd SharedMsg sharedCmd
     , view =
         \model ->
             builder.pageStack.view model.shared model.page
@@ -349,56 +413,15 @@ application viewMap app builder =
         \msg model ->
             case msg of
                 SharedMsg sharedMsg ->
-                    let
-                        ( newShared, sharedCmd ) =
-                            app.update sharedMsg model.shared
-
-                        identityChanged : Bool
-                        identityChanged =
-                            builder.extractIdentity newShared
-                                /= builder.extractIdentity model.shared
-                    in
-                    if identityChanged then
-                        let
-                            ( page, pageEffect ) =
-                                builder.pageStack.update newShared (PageStack.routeChange model.currentRoute) model.page
-                        in
-                        case PageStack.getError page of
-                            Just _ ->
-                                ( { model
-                                    | shared = newShared
-                                    , page = page
-                                  }
-                                , Cmd.batch
-                                    [ Cmd.map SharedMsg sharedCmd
-                                    , Nav.replaceUrl model.key <| app.protectPage model.currentRoute
-                                    ]
-                                )
-
-                            Nothing ->
-                                ( { model
-                                    | shared = newShared
-                                    , page = page
-                                  }
-                                , Cmd.batch
-                                    [ Cmd.map SharedMsg sharedCmd
-                                    , Effect.toCmd ( SharedMsg, PageMsg ) pageEffect
-                                    ]
-                                )
-
-                    else
-                        ( { model | shared = newShared }
-                        , Cmd.map SharedMsg sharedCmd
-                        )
+                    updateShared sharedMsg model
 
                 PageMsg pageMsg ->
                     let
                         ( newPage, pageEffect ) =
                             builder.pageStack.update model.shared pageMsg model.page
                     in
-                    ( { model | page = newPage }
-                    , Effect.toCmd ( SharedMsg, PageMsg ) pageEffect
-                    )
+                    { model | page = newPage }
+                        |> applyEffect pageEffect
 
                 UrlRequest urlRequest ->
                     case urlRequest of
@@ -431,12 +454,11 @@ application viewMap app builder =
                             )
 
                         Nothing ->
-                            ( { model
+                            { model
                                 | currentRoute = route
                                 , page = page
-                              }
-                            , Effect.toCmd ( SharedMsg, PageMsg ) pageEffect
-                            )
+                            }
+                                |> applyEffect pageEffect
     , subscriptions =
         \model ->
             Sub.batch
@@ -463,3 +485,20 @@ onUrlRequest toSharedMsg app =
     { app
         | onUrlRequest = toSharedMsg >> SharedMsg
     }
+
+
+
+{- UTILITIES -}
+
+
+addCmd : Cmd msg -> ( model, Cmd msg ) -> ( model, Cmd msg )
+addCmd cmd =
+    Tuple.mapSecond
+        (\c ->
+            Cmd.batch [ c, cmd ]
+        )
+
+
+addMapCmd : (msg1 -> msg) -> Cmd msg1 -> ( model, Cmd msg ) -> ( model, Cmd msg )
+addMapCmd tomsg =
+    addCmd << Cmd.map tomsg
