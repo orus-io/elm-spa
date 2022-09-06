@@ -1,7 +1,7 @@
 module Spa exposing
     ( init, initNoShared
     , addPublicPage, addProtectedPage
-    , application, mapSharedMsg, onUrlRequest
+    , beforeRouteChange, application, mapSharedMsg, onUrlRequest
     , Builder, Model, Msg, SetupError, Application
     )
 
@@ -48,7 +48,7 @@ module Spa exposing
 Once all the pages are added to the application, we can change it into a record
 suitable for the `Browser.application` function.
 
-@docs application, mapSharedMsg, onUrlRequest
+@docs beforeRouteChange, application, mapSharedMsg, onUrlRequest
 
 
 # Types
@@ -108,6 +108,7 @@ modelShared { shared } =
 type alias Builder route identity shared sharedMsg view current previous currentMsg previousMsg =
     { extractIdentity : shared -> Maybe identity
     , pageStack : PageStack.Stack SetupError shared sharedMsg route view current previous currentMsg previousMsg
+    , beforeRouteChange : Maybe (route -> sharedMsg)
     }
 
 
@@ -134,6 +135,7 @@ init :
 init shared =
     { extractIdentity = shared.extractIdentity
     , pageStack = PageStack.setup { defaultView = shared.defaultView }
+    , beforeRouteChange = Nothing
     }
 
 
@@ -251,6 +253,7 @@ addPage mappers matchRoute page builder =
     in
     { extractIdentity = builder.extractIdentity
     , pageStack = pageStack
+    , beforeRouteChange = Nothing
     }
 
 
@@ -413,7 +416,11 @@ application viewMap app builder =
         \msg model ->
             case msg of
                 SharedMsg sharedMsg ->
-                    updateShared sharedMsg model
+                    let
+                        ( nextModel, nextCmd ) =
+                            updateShared sharedMsg model
+                    in
+                    ( nextModel, nextCmd )
 
                 PageMsg pageMsg ->
                     let
@@ -441,8 +448,16 @@ application viewMap app builder =
                         route =
                             app.toRoute url
 
+                        ( nextShared, nextSharedCmd ) =
+                            case builder.beforeRouteChange of
+                                Just toSharedMsg ->
+                                    app.update (toSharedMsg route) model.shared
+
+                                Nothing ->
+                                    ( model.shared, Cmd.none )
+
                         ( page, pageEffect ) =
-                            builder.pageStack.update model.shared (PageStack.routeChange route) model.page
+                            builder.pageStack.update nextShared (PageStack.routeChange route) model.page
                     in
                     case PageStack.getError page of
                         Just _ ->
@@ -450,7 +465,10 @@ application viewMap app builder =
                                 | currentRoute = route
                                 , page = page
                               }
-                            , Nav.replaceUrl model.key <| app.protectPage route
+                            , Cmd.batch
+                                [ nextSharedCmd |> Cmd.map SharedMsg
+                                , Nav.replaceUrl model.key <| app.protectPage route
+                                ]
                             )
 
                         Nothing ->
@@ -459,6 +477,13 @@ application viewMap app builder =
                                 , page = page
                             }
                                 |> applyEffect pageEffect
+                                |> Tuple.mapSecond
+                                    (\cmd ->
+                                        Cmd.batch
+                                            [ nextSharedCmd |> Cmd.map SharedMsg
+                                            , cmd
+                                            ]
+                                    )
     , subscriptions =
         \model ->
             Sub.batch
@@ -467,6 +492,23 @@ application viewMap app builder =
                 ]
     , onUrlRequest = UrlRequest
     , onUrlChange = UrlChange
+    }
+
+
+{-| Set a message for reacting to a route change, before the page is
+(re-)initialized
+
+The shared state after handling this message will be passed to the page, but
+the effect will be combined to the page init effects.
+
+-}
+beforeRouteChange :
+    (route -> sharedMsg)
+    -> Builder route identity shared sharedMsg pageView current previous currentMsg previousMsg
+    -> Builder route identity shared sharedMsg pageView current previous currentMsg previousMsg
+beforeRouteChange toSharedMsg builder =
+    { builder
+        | beforeRouteChange = Just toSharedMsg
     }
 
 
