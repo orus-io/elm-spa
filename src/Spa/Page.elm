@@ -11,7 +11,7 @@ module Spa.Page exposing
 -}
 
 import Effect exposing (Effect)
-import Internal
+import Spa.Internal as Internal
 
 
 {-| A page is a small TEA app on its own.

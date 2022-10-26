@@ -24,7 +24,7 @@ Spa.
 -}
 
 import Effect exposing (Effect)
-import Internal
+import Spa.Internal as Internal
 import Spa.Page exposing (Page)
 
 

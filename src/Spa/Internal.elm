@@ -1,4 +1,4 @@
-module Internal exposing (Page(..), PageDefinition)
+module Spa.Internal exposing (Page(..), PageDefinition)
 
 import Effect exposing (Effect)
 
