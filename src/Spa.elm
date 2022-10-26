@@ -310,7 +310,11 @@ application :
     -> Application flags shared sharedMsg route current previous currentMsg previousMsg
 application viewMap app (Builder builder) =
     let
-        initPage : route -> Nav.Key -> shared -> ( PageStack.Model SetupError current previous, Effect sharedMsg (PageStack.Msg route currentMsg previousMsg) )
+        initPage :
+            route
+            -> Nav.Key
+            -> shared
+            -> ( PageStack.Model SetupError current previous, Effect sharedMsg (PageStack.Msg route currentMsg previousMsg) )
         initPage route key shared =
             let
                 ( page, effect ) =
@@ -323,6 +327,10 @@ application viewMap app (Builder builder) =
                 Nothing ->
                     ( page, effect )
 
+        updateShared :
+            sharedMsg
+            -> Model route shared current previous
+            -> ( Model route shared current previous, Cmd (Msg sharedMsg (PageStack.Msg route currentMsg previousMsg)) )
         updateShared sharedMsg model =
             let
                 ( newShared, sharedCmd ) =
@@ -366,6 +374,10 @@ application viewMap app (Builder builder) =
                 , Cmd.map SharedMsg sharedCmd
                 )
 
+        applyEffect :
+            Effect sharedMsg (PageStack.Msg route currentMsg previousMsg)
+            -> Model route shared current previous
+            -> ( Model route shared current previous, Cmd (Msg sharedMsg (PageStack.Msg route currentMsg previousMsg)) )
         applyEffect effect model =
             let
                 ( sharedMsgList, otherEffect ) =
