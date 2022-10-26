@@ -466,6 +466,7 @@ application viewMap app (Builder builder) =
                         Just _ ->
                             ( { model
                                 | currentRoute = route
+                                , shared = nextShared
                                 , page = page
                               }
                             , Cmd.batch
@@ -477,6 +478,7 @@ application viewMap app (Builder builder) =
                         Nothing ->
                             { model
                                 | currentRoute = route
+                                , shared = nextShared
                                 , page = page
                             }
                                 |> applyEffect pageEffect
