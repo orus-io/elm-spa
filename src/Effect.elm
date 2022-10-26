@@ -1,9 +1,9 @@
 module Effect exposing
     ( Effect, none, batch, fromCmd, fromSharedCmd, fromShared, perform, attempt
-    , map, toCmd
+    , map
     , with, withNone, withBatch, withCmd, withSharedCmd, withShared, withMap, withPerform, withAttempt
     , add, addBatch, addCmd, addSharedCmd, addShared, addMap, addPerform, addAttempt
-    , extractShared
+    , toCmd, extractShared
     )
 
 {-| This module provides an [`Effect`](#Effect) type that carries both Cmd and messages for
@@ -17,7 +17,7 @@ a shared update
 
 # Transform
 
-@docs map, toCmd
+@docs map
 
 
 # Join effect to a model
@@ -34,6 +34,11 @@ These functions add a new effect to a given (model, effect) pair, for using
 pipeline syntax in your 'update' functions
 
 @docs add, addBatch, addCmd, addSharedCmd, addShared, addMap, addPerform, addAttempt
+
+
+# Applying effects
+
+@docs toCmd, extractShared
 
 -}
 
@@ -329,7 +334,7 @@ addAttempt tomsg task =
     add (attempt tomsg task)
 
 
-{-| Convert a collection of effects to a connection of
+{-| Convert a collection of effects to a collection of
 [`Cmd`](/packages/elm/core/latest/Platform-Cmd#Cmd)
 -}
 toCmd : ( sharedMsg -> msg, subMsg -> msg ) -> Effect sharedMsg subMsg -> Cmd msg
@@ -368,6 +373,12 @@ toCmd ( fromSharedMsg, fromSubMsg ) effect =
             Cmd.batch multiple
 
 
+{-| Extract the Shared messages from an effect
+
+Useful for an application that wants to apply Shared effects immediately instead
+of using tasks (which is what [toCmd](#toCmd) does)
+
+-}
 extractShared : Effect sharedMsg msg -> ( List sharedMsg, Effect sharedMsg msg )
 extractShared =
     flatten
