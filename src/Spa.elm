@@ -105,11 +105,12 @@ modelShared { shared } =
 
 {-| The intermediate type for building an application.
 -}
-type alias Builder route identity shared sharedMsg view current previous currentMsg previousMsg =
-    { extractIdentity : shared -> Maybe identity
-    , pageStack : PageStack.Stack SetupError shared sharedMsg route view current previous currentMsg previousMsg
-    , beforeRouteChange : Maybe (route -> sharedMsg)
-    }
+type Builder route identity shared sharedMsg view current previous currentMsg previousMsg
+    = Builder
+        { extractIdentity : shared -> Maybe identity
+        , pageStack : PageStack.Stack SetupError shared sharedMsg route view current previous currentMsg previousMsg
+        , beforeRouteChange : Maybe (route -> sharedMsg)
+        }
 
 
 {-| Bootstrap a Spa application
@@ -133,10 +134,11 @@ init :
     }
     -> Builder route identity shared sharedMsg view () () () ()
 init shared =
-    { extractIdentity = shared.extractIdentity
-    , pageStack = PageStack.setup { defaultView = shared.defaultView }
-    , beforeRouteChange = Nothing
-    }
+    Builder
+        { extractIdentity = shared.extractIdentity
+        , pageStack = PageStack.setup { defaultView = shared.defaultView }
+        , beforeRouteChange = Nothing
+        }
 
 
 {-| Bootstrap a Spa application that has no Shared state
@@ -222,7 +224,7 @@ addProtectedPage :
     -> (shared -> identity -> Page pageFlags sharedMsg pageView currentPageModel currentPageMsg)
     -> Builder route identity shared sharedMsg previousView previousCurrent previousPrevious previousStackCurrentMsg previousStackPreviousMsg
     -> Builder route identity shared sharedMsg view currentPageModel (PageStack.Model SetupError previousCurrent previousPrevious) currentPageMsg (PageStack.Msg route previousStackCurrentMsg previousStackPreviousMsg)
-addProtectedPage mappers matchRoute page builder =
+addProtectedPage mappers matchRoute page (Builder builder) =
     addPage mappers
         matchRoute
         (\shared ->
@@ -233,7 +235,7 @@ addProtectedPage mappers matchRoute page builder =
                 Nothing ->
                     Err ProtectedPageError
         )
-        builder
+        (Builder builder)
 
 
 addPage :
@@ -244,17 +246,18 @@ addPage :
     -> PageStack.PageSetup SetupError pageFlags shared sharedMsg pageView currentPageModel currentPageMsg
     -> Builder route identity shared sharedMsg previousView previousCurrent previousPrevious previousStackCurrentMsg previousStackPreviousMsg
     -> Builder route identity shared sharedMsg view currentPageModel (PageStack.Model SetupError previousCurrent previousPrevious) currentPageMsg (PageStack.Msg route previousStackCurrentMsg previousStackPreviousMsg)
-addPage mappers matchRoute page builder =
+addPage mappers matchRoute page (Builder builder) =
     let
         pageStack : PageStack.Stack SetupError shared sharedMsg route view currentPageModel (PageStack.Model SetupError previousCurrent previousPrevious) currentPageMsg (PageStack.Msg route previousStackCurrentMsg previousStackPreviousMsg)
         pageStack =
             builder.pageStack
                 |> PageStack.add mappers matchRoute page
     in
-    { extractIdentity = builder.extractIdentity
-    , pageStack = pageStack
-    , beforeRouteChange = Nothing
-    }
+    Builder
+        { extractIdentity = builder.extractIdentity
+        , pageStack = pageStack
+        , beforeRouteChange = Nothing
+        }
 
 
 {-| The Application type that can be passed to Browser.application
@@ -305,7 +308,7 @@ application :
         }
     -> Builder route identity shared sharedMsg pageView current previous currentMsg previousMsg
     -> Application flags shared sharedMsg route current previous currentMsg previousMsg
-application viewMap app builder =
+application viewMap app (Builder builder) =
     let
         initPage : route -> Nav.Key -> shared -> ( PageStack.Model SetupError current previous, Effect sharedMsg (PageStack.Msg route currentMsg previousMsg) )
         initPage route key shared =
@@ -506,10 +509,11 @@ beforeRouteChange :
     (route -> sharedMsg)
     -> Builder route identity shared sharedMsg pageView current previous currentMsg previousMsg
     -> Builder route identity shared sharedMsg pageView current previous currentMsg previousMsg
-beforeRouteChange toSharedMsg builder =
-    { builder
-        | beforeRouteChange = Just toSharedMsg
-    }
+beforeRouteChange toSharedMsg (Builder builder) =
+    Builder
+        { builder
+            | beforeRouteChange = Just toSharedMsg
+        }
 
 
 {-| Set a custom message for handling the onUrlRequest event of the
