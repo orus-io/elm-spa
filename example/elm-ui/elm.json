@@ -11,7 +11,7 @@
             "elm/time": "1.0.0",
             "elm/url": "1.0.0",
             "mdgriffith/elm-ui": "1.1.8",
-            "orus-io/elm-spa": "2.0.0"
+            "orus-io/elm-spa": "3.0.1"
         },
         "indirect": {
             "elm/html": "1.0.0",

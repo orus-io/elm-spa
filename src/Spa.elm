@@ -411,6 +411,18 @@ application viewMap app (Builder builder) =
 
                 ( shared, sharedCmd ) =
                     app.init flags key
+                        |> (case builder.beforeRouteChange of
+                                Just toSharedMsg ->
+                                    \( s, sCmd ) ->
+                                        let
+                                            ( newShared, cmd ) =
+                                                app.update (toSharedMsg route) s
+                                        in
+                                        ( newShared, Cmd.batch [ sCmd, cmd ] )
+
+                                Nothing ->
+                                    identity
+                           )
 
                 ( page, pageEffect ) =
                     initPage route key shared

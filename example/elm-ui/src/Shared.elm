@@ -22,6 +22,7 @@ type alias Identity =
 type alias Shared =
     { key : Nav.Key
     , identity : Maybe Identity
+    , currentRoute : Route
     }
 
 
@@ -30,6 +31,7 @@ type Msg
     | ResetIdentity
     | PushRoute Route
     | ReplaceRoute Route
+    | RouteChange Route
 
 
 identity : Shared -> Maybe Identity
@@ -41,6 +43,7 @@ init : () -> Nav.Key -> ( Shared, Cmd Msg )
 init _ key =
     ( { key = key
       , identity = Nothing
+      , currentRoute = Route.Home
       }
     , Cmd.none
     )
@@ -64,6 +67,13 @@ update msg shared =
 
         ReplaceRoute route ->
             ( shared, Nav.replaceUrl shared.key <| Route.toUrl route )
+
+        RouteChange route ->
+            ( { shared
+                | currentRoute = route
+              }
+            , Cmd.none
+            )
 
 
 subscriptions : Shared -> Sub Msg

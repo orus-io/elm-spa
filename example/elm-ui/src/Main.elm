@@ -33,22 +33,22 @@ toDocument shared view =
                 , Element.height Element.fill
                 ]
                 [ Element.row
-                    [ Element.alignRight
-                    , Element.padding 20
+                    [ Element.padding 20
                     , Element.spacing 20
+                    , Element.width Element.fill
                     ]
                   <|
                     case shared.identity of
                         Just username ->
-                            [ Element.text username
-                            , Input.button []
+                            [ Element.el [ Element.alignRight ] <| Element.text username
+                            , Input.button [ Element.alignRight ]
                                 { label = Element.text "logout"
                                 , onPress = Just (Spa.mapSharedMsg Shared.ResetIdentity)
                                 }
                             ]
 
                         Nothing ->
-                            [ Element.link []
+                            [ Element.link [ Element.alignRight ]
                                 { label = Element.text "Sign-in"
                                 , url = "/sign-in"
                                 }
@@ -56,6 +56,11 @@ toDocument shared view =
                 , Element.el
                     [ Element.centerX, Element.centerY ]
                     view.body
+                , Element.el
+                    [ Element.alignBottom
+                    ]
+                  <|
+                    Element.text ("Current route: " ++ Route.toUrl shared.currentRoute)
                 ]
         ]
     }
@@ -70,6 +75,7 @@ main =
         |> Spa.addPublicPage mappers Route.matchSignIn SignIn.page
         |> Spa.addProtectedPage mappers Route.matchCounter Counter.page
         |> Spa.addPublicPage mappers Route.matchTime Time.page
+        |> Spa.beforeRouteChange Shared.RouteChange
         |> Spa.application View.map
             { init = Shared.init
             , subscriptions = Shared.subscriptions
