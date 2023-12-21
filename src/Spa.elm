@@ -129,7 +129,7 @@ type Builder route identity shared sharedMsg view current previous currentMsg pr
 
 -}
 init :
-    { defaultView : view
+    { defaultView : shared -> view
     , extractIdentity : shared -> Maybe identity
     }
     -> Builder route identity shared sharedMsg view () () () ()
@@ -149,7 +149,7 @@ initNoShared :
     -> Builder route () () () view () () () ()
 initNoShared { defaultView } =
     init
-        { defaultView = defaultView
+        { defaultView = \() -> defaultView
         , extractIdentity = always Nothing
         }
 

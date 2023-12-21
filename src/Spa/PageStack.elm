@@ -133,12 +133,12 @@ happen if the application is properly defined.
 
 -}
 setup :
-    { defaultView : view }
+    { defaultView : shared -> view }
     -> Stack setupError shared sharedMsg route view () () () ()
 setup { defaultView } =
     { init = \_ _ -> ( NoPage, Effect.none )
     , update = \_ _ _ -> ( NoPage, Effect.none )
-    , view = \_ _ -> defaultView
+    , view = \shared _ -> defaultView shared
     , subscriptions = \_ _ -> Sub.none
     }
 
