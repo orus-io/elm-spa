@@ -1,8 +1,9 @@
 module Spa exposing
-    ( init, initNoShared
+    ( init2, initNoShared
     , addPublicPage, addProtectedPage
     , beforeRouteChange, application, mapSharedMsg, onUrlRequest
     , Builder, Model, Msg, SetupError, Application
+    , init
     )
 
 {-| A typical SPA application is defined in a few simple steps:
@@ -35,7 +36,7 @@ module Spa exposing
 
 # Create the application
 
-@docs init, initNoShared
+@docs init2, initNoShared
 
 
 # Add pages
@@ -54,6 +55,11 @@ suitable for the `Browser.application` function.
 # Types
 
 @docs Builder, Model, Msg, SetupError, Application
+
+
+## Deprecated
+
+@docs init
 
 -}
 
@@ -113,6 +119,20 @@ type Builder route identity shared sharedMsg view current previous currentMsg pr
         }
 
 
+{-| Deprecated, see #init2
+-}
+init :
+    { defaultView : view
+    , extractIdentity : shared -> Maybe identity
+    }
+    -> Builder route identity shared sharedMsg view () () () ()
+init { defaultView, extractIdentity } =
+    init2
+        { defaultView = \_ -> defaultView
+        , extractIdentity = extractIdentity
+        }
+
+
 {-| Bootstrap a Spa application
 
     Spa.init
@@ -128,15 +148,15 @@ type Builder route identity shared sharedMsg view current previous currentMsg pr
     `Shared` record. The actual `identity` type can be anything you want.
 
 -}
-init :
+init2 :
     { defaultView : shared -> view
     , extractIdentity : shared -> Maybe identity
     }
     -> Builder route identity shared sharedMsg view () () () ()
-init shared =
+init2 shared =
     Builder
         { extractIdentity = shared.extractIdentity
-        , pageStack = PageStack.setup { defaultView = shared.defaultView }
+        , pageStack = PageStack.setup2 { defaultView = shared.defaultView }
         , beforeRouteChange = Nothing
         }
 
@@ -148,7 +168,7 @@ initNoShared :
     }
     -> Builder route () () () view () () () ()
 initNoShared { defaultView } =
-    init
+    init2
         { defaultView = \() -> defaultView
         , extractIdentity = always Nothing
         }

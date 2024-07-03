@@ -48,7 +48,7 @@ then add pages to it, and finally build a record suitable for `Browser.applicati
 
 ```elm
 main =
-    Spa.init
+    Spa.init2
         { defaultView = View.defaultView
         , extractIdentity = Shared.identity
         }
@@ -78,7 +78,7 @@ urls are parsed into a `Route` (there is a good example of that in the
 which is in turn used for deciding which page should be currently displayed.
 
 Orus Elm-Spa allows to use such a type, and the first thing for that is to give
-a `toRoute` function to `Spa.init`, so it is capable to parse an incoming URL
+a `toRoute` function to `Spa.init2`, so it is capable to parse an incoming URL
 into your own custom `Route` type.
 
 ```elm
@@ -107,7 +107,7 @@ in the application:
 
 ```elm
 main =
-    Spa.init
+    Spa.init2
         { defaultView = View.defaultView
         -- ...
         }
@@ -149,7 +149,7 @@ For that, Orus Elm-Spa needs two things:
 
 ```elm
 main =
-    Spa.init
+    Spa.init2
         { -- ...
         , extractIdentity = Shared.identity
         }

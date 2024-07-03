@@ -1,7 +1,8 @@
 module Spa.PageStack exposing
-    ( Stack, setup, add
+    ( Stack, setup2, add
     , Msg, Model, empty, getError, routeChange
     , PageSetup, RouteMatcher, CurrentViewMap, PreviousViewMap
+    , setup
     )
 
 {-| This module provides the tools to combine multiple pages into a single TEA
@@ -15,11 +16,16 @@ embedding a PageStack in the existing application, then port pages to it one by
 one. Once all the pages are in the stack, the main application can be ported to
 Spa.
 
-@docs Stack, setup, add
+@docs Stack, setup2, add
 
 @docs Msg, Model, empty, getError, routeChange
 
 @docs PageSetup, RouteMatcher, CurrentViewMap, PreviousViewMap
+
+
+## Deprecated
+
+@docs setup
 
 -}
 
@@ -126,16 +132,25 @@ mapPrevious m =
             Previous m
 
 
+{-| Deprecated ; see #setup2
+-}
+setup :
+    { defaultView : view }
+    -> Stack setupError shared sharedMsg route view () () () ()
+setup { defaultView } =
+    setup2 { defaultView = always defaultView }
+
+
 {-| Setup a new stack
 
 The defaultView is used when no other view can be applied, which should never
 happen if the application is properly defined.
 
 -}
-setup :
+setup2 :
     { defaultView : shared -> view }
     -> Stack setupError shared sharedMsg route view () () () ()
-setup { defaultView } =
+setup2 { defaultView } =
     { init = \_ _ -> ( NoPage, Effect.none )
     , update = \_ _ _ -> ( NoPage, Effect.none )
     , view = \shared _ -> defaultView shared
