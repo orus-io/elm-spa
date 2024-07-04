@@ -4,6 +4,7 @@ module Spa exposing
     , beforeRouteChange, application, mapSharedMsg, onUrlRequest
     , Builder, Model, Msg, SetupError, Application
     , init
+    , LoaderNext(..), applicationWithLoader
     )
 
 {-| A typical SPA application is defined in a few simple steps:
@@ -66,6 +67,7 @@ suitable for the `Browser.application` function.
 import Browser exposing (Document, UrlRequest)
 import Browser.Navigation as Nav
 import Effect exposing (Effect)
+import Html
 import Spa.Page exposing (Page)
 import Spa.PageStack as PageStack
 import Url exposing (Url)
@@ -73,8 +75,9 @@ import Url exposing (Url)
 
 {-| The Application Msg type
 -}
-type Msg sharedMsg pageMsg
-    = SharedMsg sharedMsg
+type Msg loaderMsg sharedMsg pageMsg
+    = LoaderMsg loaderMsg
+    | SharedMsg sharedMsg
     | PageMsg pageMsg
     | UrlRequest UrlRequest
     | UrlChange Url
@@ -83,7 +86,7 @@ type Msg sharedMsg pageMsg
 {-| maps a sharedMsg into a Msg. Useful in the 'toDocument' function, to add
 global actions that trigger shared messages
 -}
-mapSharedMsg : sharedMsg -> Msg sharedMsg pageMsg
+mapSharedMsg : sharedMsg -> Msg loaderMsg sharedMsg pageMsg
 mapSharedMsg =
     SharedMsg
 
@@ -282,13 +285,13 @@ addPage mappers matchRoute page (Builder builder) =
 
 {-| The Application type that can be passed to Browser.application
 -}
-type alias Application flags shared sharedMsg route current previous currentMsg previousMsg =
-    { init : flags -> Url -> Nav.Key -> ( Model route shared current previous, Cmd (Msg sharedMsg (PageStack.Msg route currentMsg previousMsg)) )
-    , view : Model route shared current previous -> Document (Msg sharedMsg (PageStack.Msg route currentMsg previousMsg))
-    , update : Msg sharedMsg (PageStack.Msg route currentMsg previousMsg) -> Model route shared current previous -> ( Model route shared current previous, Cmd (Msg sharedMsg (PageStack.Msg route currentMsg previousMsg)) )
-    , subscriptions : Model route shared current previous -> Sub (Msg sharedMsg (PageStack.Msg route currentMsg previousMsg))
-    , onUrlRequest : UrlRequest -> Msg sharedMsg (PageStack.Msg route currentMsg previousMsg)
-    , onUrlChange : Url -> Msg sharedMsg (PageStack.Msg route currentMsg previousMsg)
+type alias Application flags loaderMsg shared sharedMsg route current previous currentMsg previousMsg =
+    { init : flags -> Url -> Nav.Key -> ( Model route shared current previous, Cmd (Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg)) )
+    , view : Model route shared current previous -> Document (Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg))
+    , update : Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg) -> Model route shared current previous -> ( Model route shared current previous, Cmd (Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg)) )
+    , subscriptions : Model route shared current previous -> Sub (Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg))
+    , onUrlRequest : UrlRequest -> Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg)
+    , onUrlChange : Url -> Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg)
     }
 
 
@@ -317,18 +320,141 @@ It takes a view mapper, then:
 
 -}
 application :
-    ((PageStack.Msg route currentMsg previousMsg -> Msg sharedMsg (PageStack.Msg route currentMsg previousMsg)) -> pageView -> view)
+    ((PageStack.Msg route currentMsg previousMsg -> Msg () sharedMsg (PageStack.Msg route currentMsg previousMsg)) -> pageView -> view)
     ->
         { toRoute : Url -> route
         , init : flags -> Nav.Key -> ( shared, Cmd sharedMsg )
         , subscriptions : shared -> Sub sharedMsg
         , update : sharedMsg -> shared -> ( shared, Cmd sharedMsg )
         , protectPage : route -> String
-        , toDocument : shared -> view -> Document (Msg sharedMsg (PageStack.Msg route currentMsg previousMsg))
+        , toDocument : shared -> view -> Document (Msg () sharedMsg (PageStack.Msg route currentMsg previousMsg))
         }
     -> Builder route identity shared sharedMsg pageView current previous currentMsg previousMsg
-    -> Application flags shared sharedMsg route current previous currentMsg previousMsg
-application viewMap app (Builder builder) =
+    -> ApplicationWithLoader flags () () shared sharedMsg route current previous currentMsg previousMsg
+application viewMap app builder =
+    applicationWithLoader viewMap
+        { init =
+            \flags _ key ->
+                app.init flags key
+                    |> Loaded
+        , update =
+            \() () ->
+                Loading ( (), Cmd.none )
+        , subscriptions = \() -> Sub.none
+        , view = \() -> { title = "", body = [] }
+        }
+        { toRoute = app.toRoute
+        , subscriptions = app.subscriptions
+        , update = app.update
+        , protectPage = app.protectPage
+        , toDocument = app.toDocument
+        }
+        builder
+
+
+{-| Set a message for reacting to a route change, before the page is
+(re-)initialized
+
+The shared state after handling this message will be passed to the page, but
+the effect will be combined to the page init effects.
+
+-}
+beforeRouteChange :
+    (route -> sharedMsg)
+    -> Builder route identity shared sharedMsg pageView current previous currentMsg previousMsg
+    -> Builder route identity shared sharedMsg pageView current previous currentMsg previousMsg
+beforeRouteChange toSharedMsg (Builder builder) =
+    Builder
+        { builder
+            | beforeRouteChange = Just toSharedMsg
+        }
+
+
+{-| Set a custom message for handling the onUrlRequest event of the
+Browser application.
+
+The default handler does what most people expect (Nav.push internal
+urls, and Nav.load external urls).
+
+-}
+onUrlRequest :
+    (UrlRequest -> sharedMsg)
+    -> Application flags loaderMsg shared sharedMsg route current previous currentMsg previousMsg
+    -> Application flags loaderMsg shared sharedMsg route current previous currentMsg previousMsg
+onUrlRequest toSharedMsg app =
+    { app
+        | onUrlRequest = toSharedMsg >> SharedMsg
+    }
+
+
+
+{- UTILITIES -}
+
+
+addCmd : Cmd msg -> ( model, Cmd msg ) -> ( model, Cmd msg )
+addCmd cmd =
+    Tuple.mapSecond
+        (\c ->
+            Cmd.batch [ c, cmd ]
+        )
+
+
+addMapCmd : (msg1 -> msg) -> Cmd msg1 -> ( model, Cmd msg ) -> ( model, Cmd msg )
+addMapCmd tomsg =
+    addCmd << Cmd.map tomsg
+
+
+
+{- Loader API -}
+
+
+type ModelWithLoader route loader shared current previous
+    = ModelLoading
+        { route : route
+        , key : Nav.Key
+        , loader : loader
+        }
+    | ModelLoaded (Model route shared current previous)
+
+
+type LoaderNext loader loaderMsg shared sharedMsg
+    = Loading ( loader, Cmd loaderMsg )
+    | Loaded ( shared, Cmd sharedMsg )
+
+
+type alias ApplicationWithLoader flags loader loaderMsg shared sharedMsg route current previous currentMsg previousMsg =
+    { init : flags -> Url -> Nav.Key -> ( ModelWithLoader route loader shared current previous, Cmd (Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg)) )
+    , view : ModelWithLoader route loader shared current previous -> Document (Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg))
+    , update : Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg) -> ModelWithLoader route loader shared current previous -> ( ModelWithLoader route loader shared current previous, Cmd (Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg)) )
+    , subscriptions : ModelWithLoader route loader shared current previous -> Sub (Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg))
+    , onUrlRequest : UrlRequest -> Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg)
+    , onUrlChange : Url -> Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg)
+    }
+
+
+applicationWithLoader :
+    ((PageStack.Msg route currentMsg previousMsg
+      -> Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg)
+     )
+     -> pageView
+     -> view
+    )
+    ->
+        { init : flags -> route -> Nav.Key -> LoaderNext loader loaderMsg shared sharedMsg
+        , update : loaderMsg -> loader -> LoaderNext loader loaderMsg shared sharedMsg
+        , subscriptions : loader -> Sub loaderMsg
+        , view : loader -> Document loaderMsg
+        }
+    ->
+        { toRoute : Url -> route
+        , subscriptions : shared -> Sub sharedMsg
+        , update : sharedMsg -> shared -> ( shared, Cmd sharedMsg )
+        , protectPage : route -> String
+        , toDocument : shared -> view -> Document (Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg))
+        }
+    -> Builder route identity shared sharedMsg pageView current previous currentMsg previousMsg
+    -> ApplicationWithLoader flags loader loaderMsg shared sharedMsg route current previous currentMsg previousMsg
+applicationWithLoader viewMap loader app (Builder builder) =
     let
         initPage :
             route
@@ -350,7 +476,7 @@ application viewMap app (Builder builder) =
         updateShared :
             sharedMsg
             -> Model route shared current previous
-            -> ( Model route shared current previous, Cmd (Msg sharedMsg (PageStack.Msg route currentMsg previousMsg)) )
+            -> ( Model route shared current previous, Cmd (Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg)) )
         updateShared sharedMsg model =
             let
                 ( newShared, sharedCmd ) =
@@ -397,7 +523,7 @@ application viewMap app (Builder builder) =
         applyEffect :
             Effect sharedMsg (PageStack.Msg route currentMsg previousMsg)
             -> Model route shared current previous
-            -> ( Model route shared current previous, Cmd (Msg sharedMsg (PageStack.Msg route currentMsg previousMsg)) )
+            -> ( Model route shared current previous, Cmd (Msg loaderMsg sharedMsg (PageStack.Msg route currentMsg previousMsg)) )
         applyEffect effect model =
             let
                 ( sharedMsgList, otherEffect ) =
@@ -421,28 +547,23 @@ application viewMap app (Builder builder) =
                     :: cmd
                 )
             )
-    in
-    { init =
-        \flags url key ->
+
+        applyBeforeRouteChange route shared sharedCmd =
+            case builder.beforeRouteChange of
+                Just toSharedMsg ->
+                    let
+                        ( next, cmd ) =
+                            app.update (toSharedMsg route) shared
+                    in
+                    ( next, Cmd.batch [ sharedCmd, cmd ] )
+
+                Nothing ->
+                    ( shared, sharedCmd )
+
+        loaded key route shared sharedCmd =
             let
-                route : route
-                route =
-                    app.toRoute url
-
-                ( shared, sharedCmd ) =
-                    app.init flags key
-                        |> (case builder.beforeRouteChange of
-                                Just toSharedMsg ->
-                                    \( s, sCmd ) ->
-                                        let
-                                            ( newShared, cmd ) =
-                                                app.update (toSharedMsg route) s
-                                        in
-                                        ( newShared, Cmd.batch [ sCmd, cmd ] )
-
-                                Nothing ->
-                                    identity
-                           )
+                ( nextShared, nextSharedCmd ) =
+                    applyBeforeRouteChange route shared sharedCmd
 
                 ( page, pageEffect ) =
                     initPage route key shared
@@ -453,43 +574,86 @@ application viewMap app (Builder builder) =
             , page = page
             }
                 |> applyEffect pageEffect
+                |> Tuple.mapFirst ModelLoaded
                 |> addMapCmd SharedMsg sharedCmd
+    in
+    { init =
+        \flags url key ->
+            let
+                route : route
+                route =
+                    app.toRoute url
+            in
+            case loader.init flags route key of
+                Loading ( loaderModel, loaderCmd ) ->
+                    ( ModelLoading
+                        { key = key
+                        , route = route
+                        , loader = loaderModel
+                        }
+                    , Cmd.map LoaderMsg loaderCmd
+                    )
+
+                Loaded ( shared, sharedMsg ) ->
+                    loaded key route shared sharedMsg
     , view =
-        \model ->
-            builder.pageStack.view model.shared model.page
-                |> viewMap PageMsg
-                |> app.toDocument (modelShared model)
+        \modelWithLoader ->
+            case modelWithLoader of
+                ModelLoading model ->
+                    let
+                        { title, body } =
+                            loader.view model.loader
+                    in
+                    { title = title
+                    , body = List.map (Html.map LoaderMsg) body
+                    }
+
+                ModelLoaded model ->
+                    builder.pageStack.view model.shared model.page
+                        |> viewMap PageMsg
+                        |> app.toDocument (modelShared model)
     , update =
-        \msg model ->
-            case msg of
-                SharedMsg sharedMsg ->
+        \msg modelWithLoader ->
+            case ( modelWithLoader, msg ) of
+                ( ModelLoading model, LoaderMsg loaderMsg ) ->
+                    case loader.update loaderMsg model.loader of
+                        Loaded ( shared, sharedCmd ) ->
+                            loaded model.key model.route shared sharedCmd
+
+                        Loading ( loadedModel, loadedCmd ) ->
+                            ( ModelLoading { model | loader = loadedModel }
+                            , Cmd.map LoaderMsg loadedCmd
+                            )
+
+                ( ModelLoaded model, SharedMsg sharedMsg ) ->
                     let
                         ( nextModel, nextCmd ) =
                             updateShared sharedMsg model
                     in
-                    ( nextModel, nextCmd )
+                    ( ModelLoaded nextModel, nextCmd )
 
-                PageMsg pageMsg ->
+                ( ModelLoaded model, PageMsg pageMsg ) ->
                     let
                         ( newPage, pageEffect ) =
                             builder.pageStack.update model.shared pageMsg model.page
                     in
                     { model | page = newPage }
                         |> applyEffect pageEffect
+                        |> Tuple.mapFirst ModelLoaded
 
-                UrlRequest urlRequest ->
+                ( ModelLoaded model, UrlRequest urlRequest ) ->
                     case urlRequest of
                         Browser.Internal url ->
-                            ( model
+                            ( ModelLoaded model
                             , Nav.pushUrl model.key (Url.toString url)
                             )
 
                         Browser.External url ->
-                            ( model
+                            ( ModelLoaded model
                             , Nav.load url
                             )
 
-                UrlChange url ->
+                ( ModelLoaded model, UrlChange url ) ->
                     let
                         route : route
                         route =
@@ -508,11 +672,12 @@ application viewMap app (Builder builder) =
                     in
                     case PageStack.getError page of
                         Just _ ->
-                            ( { model
-                                | currentRoute = route
-                                , shared = nextShared
-                                , page = page
-                              }
+                            ( ModelLoaded
+                                { model
+                                    | currentRoute = route
+                                    , shared = nextShared
+                                    , page = page
+                                }
                             , Cmd.batch
                                 [ nextSharedCmd |> Cmd.map SharedMsg
                                 , Nav.replaceUrl model.key <| app.protectPage route
@@ -526,6 +691,7 @@ application viewMap app (Builder builder) =
                                 , page = page
                             }
                                 |> applyEffect pageEffect
+                                |> Tuple.mapFirst ModelLoaded
                                 |> Tuple.mapSecond
                                     (\cmd ->
                                         Cmd.batch
@@ -533,64 +699,21 @@ application viewMap app (Builder builder) =
                                             , cmd
                                             ]
                                     )
+
+                _ ->
+                    ( modelWithLoader, Cmd.none )
     , subscriptions =
-        \model ->
-            Sub.batch
-                [ app.subscriptions model.shared |> Sub.map SharedMsg
-                , builder.pageStack.subscriptions model.shared model.page |> Sub.map PageMsg
-                ]
+        \modelWithLoader ->
+            case modelWithLoader of
+                ModelLoading model ->
+                    loader.subscriptions model.loader
+                        |> Sub.map LoaderMsg
+
+                ModelLoaded model ->
+                    Sub.batch
+                        [ app.subscriptions model.shared |> Sub.map SharedMsg
+                        , builder.pageStack.subscriptions model.shared model.page |> Sub.map PageMsg
+                        ]
     , onUrlRequest = UrlRequest
     , onUrlChange = UrlChange
     }
-
-
-{-| Set a message for reacting to a route change, before the page is
-(re-)initialized
-
-The shared state after handling this message will be passed to the page, but
-the effect will be combined to the page init effects.
-
--}
-beforeRouteChange :
-    (route -> sharedMsg)
-    -> Builder route identity shared sharedMsg pageView current previous currentMsg previousMsg
-    -> Builder route identity shared sharedMsg pageView current previous currentMsg previousMsg
-beforeRouteChange toSharedMsg (Builder builder) =
-    Builder
-        { builder
-            | beforeRouteChange = Just toSharedMsg
-        }
-
-
-{-| Set a custom message for handling the onUrlRequest event of the
-Browser application.
-
-The default handler does what most people expect (Nav.push internal
-urls, and Nav.load external urls).
-
--}
-onUrlRequest :
-    (UrlRequest -> sharedMsg)
-    -> Application flags shared sharedMsg route current previous currentMsg previousMsg
-    -> Application flags shared sharedMsg route current previous currentMsg previousMsg
-onUrlRequest toSharedMsg app =
-    { app
-        | onUrlRequest = toSharedMsg >> SharedMsg
-    }
-
-
-
-{- UTILITIES -}
-
-
-addCmd : Cmd msg -> ( model, Cmd msg ) -> ( model, Cmd msg )
-addCmd cmd =
-    Tuple.mapSecond
-        (\c ->
-            Cmd.batch [ c, cmd ]
-        )
-
-
-addMapCmd : (msg1 -> msg) -> Cmd msg1 -> ( model, Cmd msg ) -> ( model, Cmd msg )
-addMapCmd tomsg =
-    addCmd << Cmd.map tomsg
